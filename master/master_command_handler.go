@@ -1,28 +1,29 @@
 package master
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/commands"
 	"github.com/piot/hasty-server/authorization"
 	"github.com/piot/hasty-server/storage"
+	"github.com/piot/hasty-server/subscribers"
 )
 
 // MasterCommandHandler : todo
 type MasterCommandHandler struct {
 	storage *filestorage.StreamStorage
+	subs    *subscribers.Subscribers
 }
 
 // NewMasterCommandHandler : todo
-func NewMasterCommandHandler(storage *filestorage.StreamStorage) MasterCommandHandler {
-	return MasterCommandHandler{storage: storage}
+func NewMasterCommandHandler(storage *filestorage.StreamStorage, subs *subscribers.Subscribers) MasterCommandHandler {
+	return MasterCommandHandler{storage: storage, subs: subs}
 }
 
 // HandlePublishStream : todo
 func (in *MasterCommandHandler) HandlePublishStream(client authorization.Client, cmd commands.PublishStream) error {
-	log.Println("Master publish:", cmd)
+	log.Printf("Master publish:%s", cmd)
 	channel := cmd.Channel()
 	log.Println("After Channel")
 	/*
@@ -38,15 +39,18 @@ func (in *MasterCommandHandler) HandlePublishStream(client authorization.Client,
 	*/
 	streamFile, openErr := in.storage.OpenStream(channel)
 	if openErr != nil {
+		log.Fatalf("Couldn't open stream %s", channel)
 		return openErr
 	}
 
 	appendErr := streamFile.Append(cmd.Chunk())
 	if appendErr != nil {
+		log.Fatalf("Couldn't append stream %s", channel)
 		return appendErr
 	}
 	streamFile.Close()
-
+	in.subs.StreamChanged(channel)
+	log.Printf("Master publish done")
 	return nil
 }
 
@@ -54,13 +58,15 @@ func (in *MasterCommandHandler) HandlePublishStream(client authorization.Client,
 func (in *MasterCommandHandler) HandleCreateStream(client authorization.Client, cmd commands.CreateStream) (channel.ID, error) {
 	log.Println("Master createStream:", cmd)
 	path := cmd.Path()
-	authorization, authErr := client.GetCreateChannelAuthorization(path)
-	if authErr != nil {
-		return channel.ID{}, authErr
-	}
-	if !authorization.AllowedToWrite() {
-		return channel.ID{}, fmt.Errorf("Not allowed to write to %s", path)
-	}
+	/*
+		authorization, authErr := client.GetCreateChannelAuthorization(path)
+		if authErr != nil {
+			return channel.ID{}, authErr
+		}
+		if !authorization.AllowedToWrite() {
+			return channel.ID{}, fmt.Errorf("Not allowed to write to %s", path)
+		}
+	*/
 	streamFile, channel, newErr := in.storage.NewStream(path)
 	if newErr != nil {
 		return channel, newErr

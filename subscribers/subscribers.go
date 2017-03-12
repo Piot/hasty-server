@@ -3,15 +3,16 @@ package subscribers
 import (
 	"container/list"
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/piot/hasty-protocol/channel"
-	"github.com/piot/hasty-protocol/opath"
 )
 
 // SubscribeNotify : todo
 type SubscribeNotify interface {
-	EntityChanged(path opath.OPath)
+	//	EntityChanged(path opath.OPath)
+	StreamChanged(id channel.ID)
 }
 
 // Subscriber : todo
@@ -21,43 +22,60 @@ type Subscriber struct {
 
 // Subscribers : todo
 type Subscribers struct {
-	pathToSubscribers map[uint32]Subscriber
+	channelToSubscribers map[uint32]Subscriber
 }
 
 // NewSubscribers : todo
 func NewSubscribers() Subscribers {
 	pathToSubscribers := Subscribers{}
-	pathToSubscribers.pathToSubscribers = make(map[uint32]Subscriber)
+	pathToSubscribers.channelToSubscribers = make(map[uint32]Subscriber)
 	return pathToSubscribers
 }
 
 // Check : todo
 func (in *Subscribers) Check() {
-	if in.pathToSubscribers == nil {
+	if in.channelToSubscribers == nil {
 		log.Println("CHECK SUBSCRIBER NULL")
 	}
 }
 
-// AddSubscriber : todo
-func (in *Subscribers) AddSubscriber(c channel.ID, subscribeNotify SubscribeNotify) {
-	raw := c.Raw()
-	if in.pathToSubscribers == nil {
-		log.Println("ADD SUBSCRIBER NULL")
-	}
-	existingSubscribers := in.pathToSubscribers[raw]
+// StreamChanged : Called when stream has changed
+func (in *Subscribers) StreamChanged(id channel.ID) {
+	log.Printf("Detected a stream change %s", id)
+	raw := id.Raw()
+	existingSubscribers := in.channelToSubscribers[raw]
 	if existingSubscribers.subscribers == nil {
-		existingSubscribers.subscribers = list.New()
-		log.Printf("Ex:%p", in.pathToSubscribers)
-		in.pathToSubscribers[raw] = existingSubscribers
+		log.Printf("No one was listening...")
+		return
 	}
-	existingSubscribers.subscribers.PushFront(subscribeNotify)
-	log.Println("All is added")
+	l := existingSubscribers.subscribers
+	for e := l.Front(); e != nil; e = e.Next() {
+		log.Printf("Calling stream changed on subscriber")
+		e.Value.(SubscribeNotify).StreamChanged(id)
+	}
 }
 
-// RemoveSubscriber : Remove a subscriber
-func (in *Subscribers) RemoveSubscriber(c channel.ID, subscribeNotify SubscribeNotify) error {
+// AddStreamSubscriber : todo
+func (in *Subscribers) AddStreamSubscriber(c channel.ID, subscribeNotify SubscribeNotify) error {
 	raw := c.Raw()
-	existingSubscribers := in.pathToSubscribers[raw]
+	if in.channelToSubscribers == nil {
+		return fmt.Errorf("channelToSubscribers is nil")
+	}
+	existingSubscribers := in.channelToSubscribers[raw]
+	if existingSubscribers.subscribers == nil {
+		existingSubscribers.subscribers = list.New()
+		log.Printf("Ex:%p", in.channelToSubscribers)
+		in.channelToSubscribers[raw] = existingSubscribers
+	}
+	existingSubscribers.subscribers.PushFront(subscribeNotify)
+	log.Printf("Subscriber is added to %s", c)
+	return nil
+}
+
+// RemoveStreamSubscriber : Remove a subscriber
+func (in *Subscribers) RemoveStreamSubscriber(c channel.ID, subscribeNotify *SubscribeNotify) error {
+	raw := c.Raw()
+	existingSubscribers := in.channelToSubscribers[raw]
 	if existingSubscribers.subscribers == nil {
 		return errors.New("Couldn't remove subscriber from empty list")
 	}

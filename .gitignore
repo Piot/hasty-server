@@ -1,3 +1,6 @@
 hasty-server
 temp/
 *.pem
+*.sh
+start
+.hasty/

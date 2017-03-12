@@ -59,24 +59,26 @@ func setupCert(cfg *tls.Config, cert string, certPrivateKey string) error {
 	return nil
 }
 
-func setupEnvironment() (master.MasterCommandHandler, filestorage.StreamStorage, error) {
-	storage, storageErr := filestorage.NewFileStorage("temp/.hasty")
+func setupEnvironment() (master.MasterCommandHandler, filestorage.StreamStorage, *subscribers.Subscribers, error) {
+	storage, storageErr := filestorage.NewFileStorage(".hasty")
 	if storageErr != nil {
-		return master.MasterCommandHandler{}, filestorage.StreamStorage{}, storageErr
+		return master.MasterCommandHandler{}, filestorage.StreamStorage{}, nil, storageErr
 	}
 
 	streamStorage, streamStorageErr := filestorage.NewStreamStorage(storage)
 	if streamStorageErr != nil {
-		return master.MasterCommandHandler{}, filestorage.StreamStorage{}, storageErr
+		return master.MasterCommandHandler{}, filestorage.StreamStorage{}, nil, storageErr
 	}
 
-	master := master.NewMasterCommandHandler(&streamStorage)
+	subs := subscribers.NewSubscribers()
 
-	return master, streamStorage, nil
+	master := master.NewMasterCommandHandler(&streamStorage, &subs)
+
+	return master, streamStorage, &subs, nil
 }
 
 func (server Server) Listen(host string, cert string, certPrivateKey string) error { // Listen for incoming connections.
-	master, streamStorage, _ := setupEnvironment()
+	master, streamStorage, subs, _ := setupEnvironment()
 	sub := subscriber.Subscriber{}
 	commandHandler := commandhandler.NewCommandHandler(&sub, &master)
 
@@ -95,11 +97,11 @@ func (server Server) Listen(host string, cert string, certPrivateKey string) err
 	// Close the listener when the application closes.
 	defer listener.Close()
 
-	accepting(streamStorage, commandHandler, listener)
+	accepting(streamStorage, commandHandler, subs, listener)
 	return nil
 }
 
-func accepting(storage filestorage.StreamStorage, handler packetserializers.PacketHandler, listener net.Listener) {
+func accepting(storage filestorage.StreamStorage, handler packetserializers.PacketHandler, subs *subscribers.Subscribers, listener net.Listener) {
 	for {
 		// Listen for an incoming connection.
 		conn, err := listener.Accept()
@@ -108,24 +110,23 @@ func accepting(storage filestorage.StreamStorage, handler packetserializers.Pack
 			os.Exit(1)
 		}
 		// Handle connections in a new goroutine.
-		go handleRequest(storage, handler, conn)
+		go handleRequest(storage, handler, subs, conn)
 	}
 }
 
 // Handles incoming requests.
-func handleRequest(storage filestorage.StreamStorage, mainHandler packetserializers.PacketHandler, conn net.Conn) int {
+func handleRequest(storage filestorage.StreamStorage, mainHandler packetserializers.PacketHandler, subs *subscribers.Subscribers, conn net.Conn) int {
 	// Make a buffer to hold incoming data.
 	// buf := make([]byte, 4096)
 	log.Printf("Received a connection! '%s'", conn.RemoteAddr())
 	temp := make([]byte, 1024)
 
 	stream := packet.NewPacketStream()
-	subs := subscribers.NewSubscribers()
 
 	delegator := handler.NewPacketHandlerDelegator()
 	delegator.AddHandler(mainHandler)
-	connectionHandler := connection.NewConnectionHandler(&conn, &storage)
-	delegator.AddHandler(connectionHandler)
+	connectionHandler := connection.NewConnectionHandler(&conn, &storage, subs)
+	delegator.AddHandler(&connectionHandler)
 
 	subs.Check()
 

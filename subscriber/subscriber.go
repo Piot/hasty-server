@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"github.com/piot/hasty-protocol/channel"
-	"github.com/piot/hasty-protocol/opath"
 	"github.com/piot/hasty-server/subscribers"
 )
 
@@ -17,7 +16,7 @@ type Entity struct {
 // Subscriber : command
 type Subscriber struct {
 	subscriptionManager subscribers.Subscribers
-	subscriptions       map[channel.ID]*Entity
+	//	subscriptions       map[channel.ID]*Entity
 }
 
 // Priority :
@@ -33,8 +32,7 @@ const (
 // NewSubscriber : Creates a subscriber
 func NewSubscriber(subscriptionManager subscribers.Subscribers) Subscriber {
 	log.Println("NewSubscriber")
-	subscriptions := map[channel.ID]*Entity{}
-	subscriber := Subscriber{subscriptionManager: subscriptionManager, subscriptions: subscriptions}
+	subscriber := Subscriber{subscriptionManager: subscriptionManager}
 	return subscriber
 }
 
@@ -57,31 +55,10 @@ func (in *Subscriber) Subscribe(path channel.ID, priority Priority) {
 		log.Println("IN is nil")
 	}
 	log.Printf("XXX:%p", in)
-	existingEntry := in.subscriptions[path]
-	if existingEntry == nil {
-		existingEntry = new(Entity)
-		existingEntry.channelID = path
-	}
-	existingEntry.priorityValue = priorityValueFromPriority(priority)
-
-	// in.subscriptionManager.AddSubscriber(path, in)
 }
 
 // UnsubscribeStream : UnsubscribeStream
 func (in *Subscriber) UnsubscribeStream(channel channel.ID) {
 	log.Printf("Unsubscribing %s", channel)
-	in.subscriptionManager.RemoveSubscriber(channel, in)
-}
-
-// EntityChanged : Entity has changed
-func (in *Subscriber) EntityChanged(path opath.OPath) {
-	log.Printf("Entity changed:%s", path)
-}
-
-// FetchNext : Fetches the next entity
-func (in *Subscriber) FetchNext() *Entity {
-	for _, value := range in.subscriptions {
-		return value
-	}
-	return nil
+	//	in.subscriptionManager.RemoveSubscriber(channel, in)
 }
