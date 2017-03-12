@@ -113,7 +113,11 @@ func (in ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 }
 
 func (in *ConnectionHandler) sendPacket(octets []byte) {
-	header := []byte{byte(len(octets))}
-	(*in.conn).Write(header)
+	lengthBuf, lengthErr := serializer.SmallLengthToOctets(uint16(len(octets)))
+	if lengthErr != nil {
+		log.Fatalf("We couldn't write length")
+		return
+	}
+	(*in.conn).Write(lengthBuf)
 	(*in.conn).Write(octets)
 }
