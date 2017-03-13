@@ -31,12 +31,12 @@ func writeTestOctets(t *testing.T, streamStorage *StreamStorage, path string) (o
 func TestStreamCreation(t *testing.T) {
 	storage, storageErr := NewFileStorage("../temp/.hasty")
 	if storageErr != nil {
-		t.Fatal(storageErr)
+		t.Print(storageErr)
 	}
 
 	streamStorage, streamStorageErr := NewStreamStorage(storage)
 	if streamStorageErr != nil {
-		t.Fatal(streamStorageErr)
+		t.Print(streamStorageErr)
 	}
 	writeTestOctets(t, &streamStorage, "/games/@164008/users/13404")
 
@@ -44,7 +44,7 @@ func TestStreamCreation(t *testing.T) {
 	_, channelID := writeTestOctets(t, &streamStorage, "/games/@16408/users/13404")
 	reopenFile, openErr := streamStorage.OpenStream(channelID)
 	if openErr != nil {
-		t.Fatal(openErr)
+		t.Print(openErr)
 	}
 	nextChunk := []byte{43, 44, 45, 99}
 	reopenFile.Write(nextChunk)

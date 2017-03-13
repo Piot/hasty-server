@@ -21,6 +21,6 @@ func main() {
 	server := server.NewServer()
 	listenErr := server.Listen(*host, *cert, *key)
 	if listenErr != nil {
-		log.Fatalf("Error:%s", listenErr)
+		log.Printf("Error:%s", listenErr)
 	}
 }

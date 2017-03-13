@@ -26,6 +26,14 @@ func (in CommandHandler) HandleConnect(cmd commands.Connect) error {
 	return nil
 }
 
+// HandlePing : todo
+func (in CommandHandler) HandlePing(cmd commands.Ping) {
+}
+
+// HandlePong : todo
+func (in CommandHandler) HandlePong(cmd commands.Pong) {
+}
+
 // HandlePublishStream : todo
 func (in CommandHandler) HandlePublishStream(cmd commands.PublishStream) error {
 	log.Println("Handle publish:", cmd)

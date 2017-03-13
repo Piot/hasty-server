@@ -6,8 +6,8 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/piot/hasty-server/ofilepath"
 	"github.com/piot/hasty-protocol/opath"
+	"github.com/piot/hasty-server/ofilepath"
 )
 
 // FileStorage : todo
@@ -87,7 +87,7 @@ func (in FileStorage) AppendFile(opath opath.OPath) (AppendFile, error) {
 
 // ReadFile : Opens an existing file
 func (in FileStorage) ReadFile(opath opath.OPath, extension string) (ReadFile, error) {
-	log.Printf("Read file %s (extension:%s)", opath.ToString(), extension)
+	// log.Printf("Read file %s (extension:%s)", opath.ToString(), extension)
 	completePath, completeErr := in.opathToFullPath(opath)
 	if len(extension) > 0 {
 		completePath += extension
@@ -104,7 +104,7 @@ func (in FileStorage) ReadFile(opath opath.OPath, extension string) (ReadFile, e
 
 // WriteAtomic : Writes a file atomically
 func (in FileStorage) WriteAtomic(opath opath.OPath, extension string, data []byte) error {
-	log.Printf("Write atomic %s (extension:%s)", opath.ToString(), extension)
+	// log.Printf("Write atomic %s (extension:%s)", opath.ToString(), extension)
 	file, createErr := in.NewFile(opath, extension)
 	if createErr != nil {
 		return createErr
@@ -116,7 +116,7 @@ func (in FileStorage) WriteAtomic(opath opath.OPath, extension string, data []by
 
 // ReadAtomic : Reads a file atomically
 func (in FileStorage) ReadAtomic(opath opath.OPath, extension string, data []byte) (int, error) {
-	log.Printf("ReadAtomic:%s extension:%s", opath, extension)
+	// log.Printf("ReadAtomic:%s extension:%s", opath, extension)
 	file, createErr := in.ReadFile(opath, extension)
 	if createErr != nil {
 		log.Printf("Create error:%s", createErr)

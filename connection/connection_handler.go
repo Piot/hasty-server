@@ -6,7 +6,9 @@ import (
 
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/commands"
+	"github.com/piot/hasty-protocol/packet"
 	"github.com/piot/hasty-protocol/serializer"
+	"github.com/piot/hasty-protocol/timestamp"
 	"github.com/piot/hasty-server/storage"
 	"github.com/piot/hasty-server/subscribers"
 )
@@ -16,20 +18,21 @@ type StreamInfo struct {
 }
 
 type ConnectionHandler struct {
-	conn        *net.Conn
-	storage     *filestorage.StreamStorage
-	subscribers *subscribers.Subscribers
-	streamInfos map[uint32]*StreamInfo
+	conn         *net.Conn
+	storage      *filestorage.StreamStorage
+	subscribers  *subscribers.Subscribers
+	streamInfos  map[uint32]*StreamInfo
+	connectionID packet.ConnectionID
 }
 
 // NewConnectionHandler : todo
-func NewConnectionHandler(connection *net.Conn, storage *filestorage.StreamStorage, subs *subscribers.Subscribers) ConnectionHandler {
-	return ConnectionHandler{conn: connection, storage: storage, subscribers: subs, streamInfos: map[uint32]*StreamInfo{}}
+func NewConnectionHandler(connection *net.Conn, storage *filestorage.StreamStorage, subs *subscribers.Subscribers, connectionID packet.ConnectionID) ConnectionHandler {
+	return ConnectionHandler{connectionID: connectionID, conn: connection, storage: storage, subscribers: subs, streamInfos: map[uint32]*StreamInfo{}}
 }
 
 // HandleConnect : todo
 func (in ConnectionHandler) HandleConnect(cmd commands.Connect) error {
-	log.Println("Connection connect:", cmd)
+	log.Printf("%s %s", in.connectionID, cmd)
 
 	// _ := commands.NewConnectResult(cmd.Realm(), cmd.ProtocolVersion())
 	octetsToSend := serializer.ConnectResultToOctets()
@@ -37,9 +40,29 @@ func (in ConnectionHandler) HandleConnect(cmd commands.Connect) error {
 	return nil
 }
 
+func (in ConnectionHandler) sendPong(echoedTime timestamp.Time) {
+	log.Printf("%s sendPong %s", in.connectionID, echoedTime)
+	now := timestamp.Now()
+	octetsToSend := serializer.PongToOctets(now, echoedTime)
+	in.sendPacket(octetsToSend)
+}
+
+// HandlePing : todo
+func (in ConnectionHandler) HandlePing(cmd commands.Ping) {
+	log.Printf("%s %s", in.connectionID, cmd)
+	in.sendPong(cmd.SentTime())
+}
+
+// HandlePong : todo
+func (in ConnectionHandler) HandlePong(cmd commands.Pong) {
+	now := timestamp.Now()
+	latency := now.Raw() - cmd.EchoedTime().Raw()
+	log.Printf("%s Latency: %d ms", in.connectionID, latency)
+}
+
 // HandlePublishStream : todo
 func (in ConnectionHandler) HandlePublishStream(cmd commands.PublishStream) error {
-	log.Println("Connection publish:", cmd)
+	log.Printf("%s %s", in.connectionID, cmd)
 	return nil
 }
 
@@ -56,8 +79,13 @@ func (in *ConnectionHandler) StreamChanged(channelID channel.ID) {
 		return
 	}
 	file.Close()
-	payload := serializer.StreamDataToOctets(channelID, uint32(info.lastOffsetSent), data[:octetsRead])
+	in.sendStreamData(channelID, uint32(info.lastOffsetSent), data[:octetsRead])
 	info.lastOffsetSent += uint64(octetsRead)
+}
+
+func (in *ConnectionHandler) sendStreamData(channelID channel.ID, lastOffsetSent uint32, data []byte) {
+	log.Printf("%s sendStreamData %s offset:%d", in.connectionID, channelID, lastOffsetSent)
+	payload := serializer.StreamDataToOctets(channelID, lastOffsetSent, data)
 	in.sendPacket(payload)
 }
 
@@ -72,7 +100,7 @@ func (in *ConnectionHandler) fetchOrCreateStreamInfo(channelID channel.ID) *Stre
 
 // HandleSubscribeStream : todo
 func (in *ConnectionHandler) HandleSubscribeStream(cmd commands.SubscribeStream) {
-	log.Println("Connection subscribe:", cmd)
+	log.Printf("%s %s", in.connectionID, cmd)
 
 	for _, v := range cmd.Infos() {
 		readFile, err := in.storage.ReadStream(v.Channel())
@@ -98,24 +126,26 @@ func (in *ConnectionHandler) HandleSubscribeStream(cmd commands.SubscribeStream)
 
 // HandleUnsubscribeStream : todo
 func (in ConnectionHandler) HandleUnsubscribeStream(cmd commands.UnsubscribeStream) {
-	log.Println("Connection unsubscribe:", cmd)
+	log.Printf("%s %s", in.connectionID, cmd)
 }
 
 // HandleCreateStream : todo
 func (in ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (channel.ID, error) {
-	log.Println("Connection create stream:", cmd)
+	log.Printf("%s %s", in.connectionID, cmd)
 	return channel.ID{}, nil
 }
 
 // HandleStreamData : todo
 func (in ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
-	log.Println("Connection stream data:", cmd)
+	log.Printf("%s %s", in.connectionID, cmd)
 }
 
 func (in *ConnectionHandler) sendPacket(octets []byte) {
-	lengthBuf, lengthErr := serializer.SmallLengthToOctets(uint16(len(octets)))
+	payloadLength := uint16(len(octets))
+	log.Printf("%s Sending packet size: %d", in.connectionID, payloadLength)
+	lengthBuf, lengthErr := serializer.SmallLengthToOctets(payloadLength)
 	if lengthErr != nil {
-		log.Fatalf("We couldn't write length")
+		log.Printf("We couldn't write length")
 		return
 	}
 	(*in.conn).Write(lengthBuf)

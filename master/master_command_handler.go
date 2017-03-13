@@ -39,13 +39,13 @@ func (in *MasterCommandHandler) HandlePublishStream(client authorization.Client,
 	*/
 	streamFile, openErr := in.storage.OpenStream(channel)
 	if openErr != nil {
-		log.Fatalf("Couldn't open stream %s", channel)
+		log.Printf("Couldn't open stream %s", channel)
 		return openErr
 	}
 
 	appendErr := streamFile.Append(cmd.Chunk())
 	if appendErr != nil {
-		log.Fatalf("Couldn't append stream %s", channel)
+		log.Printf("Couldn't append stream %s", channel)
 		return appendErr
 	}
 	streamFile.Close()
