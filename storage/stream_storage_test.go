@@ -11,17 +11,17 @@ import (
 func writeTestOctets(t *testing.T, streamStorage *StreamStorage, path string) (opath.OPath, channel.ID) {
 	opath, opathErr := opath.NewFromString(path)
 	if opathErr != nil {
-		t.Fatal(opathErr)
+		t.Print(opathErr)
 	}
 	file, channelID, newFileErr := streamStorage.NewStream(opath)
 	if newFileErr != nil {
 		fmt.Printf("stream:%s", newFileErr)
-		t.Fatal(newFileErr)
+		t.Print(newFileErr)
 	}
 	octets := []byte{1, 2, 3, 4, 5, 42}
 	writeErr := file.Write(octets)
 	if writeErr != nil {
-		t.Fatal(writeErr)
+		t.Print(writeErr)
 	}
 
 	file.Close()
