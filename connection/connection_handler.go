@@ -7,6 +7,7 @@ import (
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/commands"
 	"github.com/piot/hasty-protocol/packet"
+	"github.com/piot/hasty-protocol/packetserializers"
 	"github.com/piot/hasty-protocol/serializer"
 	"github.com/piot/hasty-protocol/timestamp"
 	"github.com/piot/hasty-server/storage"
@@ -35,7 +36,7 @@ func (in ConnectionHandler) HandleConnect(cmd commands.Connect) error {
 	log.Printf("%s %s", in.connectionID, cmd)
 
 	// _ := commands.NewConnectResult(cmd.Realm(), cmd.ProtocolVersion())
-	octetsToSend := serializer.ConnectResultToOctets()
+	octetsToSend := packetserializers.ConnectResultToOctets()
 	in.sendPacket(octetsToSend)
 	return nil
 }
@@ -43,7 +44,7 @@ func (in ConnectionHandler) HandleConnect(cmd commands.Connect) error {
 func (in ConnectionHandler) sendPong(echoedTime timestamp.Time) {
 	log.Printf("%s sendPong %s", in.connectionID, echoedTime)
 	now := timestamp.Now()
-	octetsToSend := serializer.PongToOctets(now, echoedTime)
+	octetsToSend := packetserializers.PongToOctets(now, echoedTime)
 	in.sendPacket(octetsToSend)
 }
 
@@ -85,7 +86,7 @@ func (in *ConnectionHandler) StreamChanged(channelID channel.ID) {
 
 func (in *ConnectionHandler) sendStreamData(channelID channel.ID, lastOffsetSent uint32, data []byte) {
 	log.Printf("%s sendStreamData %s offset:%d", in.connectionID, channelID, lastOffsetSent)
-	payload := serializer.StreamDataToOctets(channelID, lastOffsetSent, data)
+	payload := packetserializers.StreamDataToOctets(channelID, lastOffsetSent, data)
 	in.sendPacket(payload)
 }
 
@@ -116,7 +117,7 @@ func (in *ConnectionHandler) HandleSubscribeStream(cmd commands.SubscribeStream)
 		}
 		data := buf[:octetsRead]
 
-		octetsToSend := serializer.StreamDataToOctets(v.Channel(), 0, data)
+		octetsToSend := packetserializers.StreamDataToOctets(v.Channel(), 0, data)
 		in.sendPacket(octetsToSend)
 		infos := in.fetchOrCreateStreamInfo(v.Channel())
 		infos.lastOffsetSent = uint64(octetsRead)

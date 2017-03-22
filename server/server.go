@@ -11,7 +11,7 @@ import (
 	"github.com/piot/hasty-protocol/handler"
 	"github.com/piot/hasty-protocol/opath"
 	"github.com/piot/hasty-protocol/packet"
-	"github.com/piot/hasty-protocol/packetserializers"
+	"github.com/piot/hasty-protocol/packetdeserializers"
 	"github.com/piot/hasty-server/commandhandler"
 	"github.com/piot/hasty-server/connection"
 	"github.com/piot/hasty-server/master"
@@ -100,7 +100,7 @@ func (server *Server) Listen(host string, cert string, certPrivateKey string) er
 	return nil
 }
 
-func (server *Server) accepting(storage filestorage.StreamStorage, handler packetserializers.PacketHandler, subs *subscribers.Subscribers, listener net.Listener) {
+func (server *Server) accepting(storage filestorage.StreamStorage, handler handler.PacketHandler, subs *subscribers.Subscribers, listener net.Listener) {
 	for {
 		// Listen for an incoming connection.
 		log.Printf("Waiting for accept...")
@@ -116,7 +116,7 @@ func (server *Server) accepting(storage filestorage.StreamStorage, handler packe
 }
 
 // Handles incoming requests.
-func handleRequest(storage filestorage.StreamStorage, mainHandler packetserializers.PacketHandler, subs *subscribers.Subscribers, conn net.Conn, connectionIdentity packet.ConnectionID) {
+func handleRequest(storage filestorage.StreamStorage, mainHandler handler.PacketHandler, subs *subscribers.Subscribers, conn net.Conn, connectionIdentity packet.ConnectionID) {
 	// Make a buffer to hold incoming data.
 	// buf := make([]byte, 4096)
 	defer conn.Close()
@@ -152,7 +152,7 @@ func handleRequest(storage filestorage.StreamStorage, mainHandler packetserializ
 			// log.Printf("Fetcherror:%s\n", fetchErr)
 		} else {
 			if newPacket.Payload() != nil {
-				err := packetserializers.Deserialize(newPacket, &delegator)
+				err := packetdeserializers.Deserialize(newPacket, &delegator)
 				if err != nil {
 					log.Printf("Deserialize error:%s", err)
 				}
