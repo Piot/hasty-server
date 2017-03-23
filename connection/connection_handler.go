@@ -27,12 +27,12 @@ type ConnectionHandler struct {
 }
 
 // NewConnectionHandler : todo
-func NewConnectionHandler(connection *net.Conn, storage *filestorage.StreamStorage, subs *subscribers.Subscribers, connectionID packet.ConnectionID) ConnectionHandler {
-	return ConnectionHandler{connectionID: connectionID, conn: connection, storage: storage, subscribers: subs, streamInfos: map[uint32]*StreamInfo{}}
+func NewConnectionHandler(connection *net.Conn, storage *filestorage.StreamStorage, subs *subscribers.Subscribers, connectionID packet.ConnectionID) *ConnectionHandler {
+	return &ConnectionHandler{connectionID: connectionID, conn: connection, storage: storage, subscribers: subs, streamInfos: map[uint32]*StreamInfo{}}
 }
 
 // HandleConnect : todo
-func (in ConnectionHandler) HandleConnect(cmd commands.Connect) error {
+func (in *ConnectionHandler) HandleConnect(cmd commands.Connect) error {
 	log.Printf("%s %s", in.connectionID, cmd)
 
 	// _ := commands.NewConnectResult(cmd.Realm(), cmd.ProtocolVersion())
@@ -41,7 +41,7 @@ func (in ConnectionHandler) HandleConnect(cmd commands.Connect) error {
 	return nil
 }
 
-func (in ConnectionHandler) sendPong(echoedTime timestamp.Time) {
+func (in *ConnectionHandler) sendPong(echoedTime timestamp.Time) {
 	log.Printf("%s sendPong %s", in.connectionID, echoedTime)
 	now := timestamp.Now()
 	octetsToSend := packetserializers.PongToOctets(now, echoedTime)
@@ -49,20 +49,20 @@ func (in ConnectionHandler) sendPong(echoedTime timestamp.Time) {
 }
 
 // HandlePing : todo
-func (in ConnectionHandler) HandlePing(cmd commands.Ping) {
+func (in *ConnectionHandler) HandlePing(cmd commands.Ping) {
 	log.Printf("%s %s", in.connectionID, cmd)
 	in.sendPong(cmd.SentTime())
 }
 
 // HandlePong : todo
-func (in ConnectionHandler) HandlePong(cmd commands.Pong) {
+func (in *ConnectionHandler) HandlePong(cmd commands.Pong) {
 	now := timestamp.Now()
 	latency := now.Raw() - cmd.EchoedTime().Raw()
 	log.Printf("%s Latency: %d ms", in.connectionID, latency)
 }
 
 // HandlePublishStream : todo
-func (in ConnectionHandler) HandlePublishStream(cmd commands.PublishStream) error {
+func (in *ConnectionHandler) HandlePublishStream(cmd commands.PublishStream) error {
 	log.Printf("%s %s", in.connectionID, cmd)
 	return nil
 }
@@ -126,18 +126,18 @@ func (in *ConnectionHandler) HandleSubscribeStream(cmd commands.SubscribeStream)
 }
 
 // HandleUnsubscribeStream : todo
-func (in ConnectionHandler) HandleUnsubscribeStream(cmd commands.UnsubscribeStream) {
+func (in *ConnectionHandler) HandleUnsubscribeStream(cmd commands.UnsubscribeStream) {
 	log.Printf("%s %s", in.connectionID, cmd)
 }
 
 // HandleCreateStream : todo
-func (in ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (channel.ID, error) {
+func (in *ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (channel.ID, error) {
 	log.Printf("%s %s", in.connectionID, cmd)
 	return channel.ID{}, nil
 }
 
 // HandleStreamData : todo
-func (in ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
+func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 	log.Printf("%s %s", in.connectionID, cmd)
 }
 

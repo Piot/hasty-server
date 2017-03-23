@@ -18,8 +18,8 @@ var (
 func main() {
 	color.Cyan("Hastyd v0.1")
 	kingpin.Parse()
-	server := server.NewServer()
-	listenErr := server.Listen(*host, *cert, *key)
+	s := hastyserver.NewServer()
+	listenErr := s.Listen(*host, *cert, *key)
 	if listenErr != nil {
 		log.Printf("Error:%s", listenErr)
 	}
