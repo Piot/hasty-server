@@ -48,6 +48,12 @@ func (in *ConnectionHandler) sendPong(echoedTime timestamp.Time) {
 	in.sendPacket(octetsToSend)
 }
 
+func (in *ConnectionHandler) sendLoginResult(worked bool) {
+	log.Printf("%s sendLoginResult %t", worked)
+	octetsToSend := packetserializers.LoginResultToOctets()
+	in.sendPacket(octetsToSend)
+}
+
 // HandlePing : todo
 func (in *ConnectionHandler) HandlePing(cmd commands.Ping) {
 	log.Printf("%s %s", in.connectionID, cmd)
@@ -139,6 +145,13 @@ func (in *ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (chan
 // HandleStreamData : todo
 func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 	log.Printf("%s %s", in.connectionID, cmd)
+}
+
+// HandleLogin : todo
+func (in *ConnectionHandler) HandleLogin(cmd commands.Login) error {
+	log.Printf("%s", cmd)
+	in.sendLoginResult(true)
+	return nil
 }
 
 func (in *ConnectionHandler) sendPacket(octets []byte) {

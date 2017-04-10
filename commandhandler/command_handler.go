@@ -71,3 +71,8 @@ func (in CommandHandler) HandleCreateStream(cmd commands.CreateStream) (channel.
 // HandleStreamData : todo
 func (in CommandHandler) HandleStreamData(cmd commands.StreamData) {
 }
+
+// HandleLogin : todo
+func (in CommandHandler) HandleLogin(cmd commands.Login) error {
+	return nil
+}
