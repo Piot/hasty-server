@@ -16,7 +16,7 @@ var (
 )
 
 func main() {
-	color.Cyan("Hastyd v0.1")
+	color.Cyan("Hastyd v0.1.1")
 	kingpin.Parse()
 	s := hastyserver.NewServer()
 	listenErr := s.Listen(*host, *cert, *key)

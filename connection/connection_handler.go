@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"encoding/hex"
 	"log"
 	"net"
 
@@ -49,7 +50,7 @@ func (in *ConnectionHandler) sendPong(echoedTime timestamp.Time) {
 }
 
 func (in *ConnectionHandler) sendLoginResult(worked bool) {
-	log.Printf("%s sendLoginResult %t", worked)
+	log.Printf("%s sendLoginResult %t", in.connectionID, worked)
 	octetsToSend := packetserializers.LoginResultToOctets()
 	in.sendPacket(octetsToSend)
 }
@@ -156,12 +157,18 @@ func (in *ConnectionHandler) HandleLogin(cmd commands.Login) error {
 
 func (in *ConnectionHandler) sendPacket(octets []byte) {
 	payloadLength := uint16(len(octets))
-	log.Printf("%s Sending packet size: %d", in.connectionID, payloadLength)
+	hexPayload := hex.Dump(octets)
 	lengthBuf, lengthErr := serializer.SmallLengthToOctets(payloadLength)
 	if lengthErr != nil {
 		log.Printf("We couldn't write length")
 		return
 	}
+	log.Printf("%s Sending packet (size %d) %s", in.connectionID, payloadLength, hexPayload)
 	(*in.conn).Write(lengthBuf)
 	(*in.conn).Write(octets)
+}
+
+// HandleTransportDisconnect : todo
+func (in *ConnectionHandler) HandleTransportDisconnect() {
+	log.Printf("%s Transport disconnect", in.connectionID)
 }

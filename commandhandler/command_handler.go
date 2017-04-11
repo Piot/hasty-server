@@ -76,3 +76,7 @@ func (in CommandHandler) HandleStreamData(cmd commands.StreamData) {
 func (in CommandHandler) HandleLogin(cmd commands.Login) error {
 	return nil
 }
+
+// HandleTransportDisconnect : todo
+func (in CommandHandler) HandleTransportDisconnect() {
+}
