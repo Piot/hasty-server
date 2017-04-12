@@ -6,11 +6,14 @@ import (
 	"net"
 
 	"github.com/piot/hasty-protocol/channel"
+	"github.com/piot/hasty-protocol/chunk"
 	"github.com/piot/hasty-protocol/commands"
 	"github.com/piot/hasty-protocol/packet"
 	"github.com/piot/hasty-protocol/packetserializers"
 	"github.com/piot/hasty-protocol/serializer"
 	"github.com/piot/hasty-protocol/timestamp"
+	"github.com/piot/hasty-server/authorization"
+	"github.com/piot/hasty-server/master"
 	"github.com/piot/hasty-server/storage"
 	"github.com/piot/hasty-server/subscribers"
 )
@@ -20,16 +23,18 @@ type StreamInfo struct {
 }
 
 type ConnectionHandler struct {
-	conn         *net.Conn
-	storage      *filestorage.StreamStorage
-	subscribers  *subscribers.Subscribers
-	streamInfos  map[uint32]*StreamInfo
-	connectionID packet.ConnectionID
+	conn          *net.Conn
+	storage       *filestorage.StreamStorage
+	subscribers   *subscribers.Subscribers
+	streamInfos   map[uint32]*StreamInfo
+	connectionID  packet.ConnectionID
+	masterHandler *master.MasterCommandHandler
+	chunkStreams  map[uint32]*chunk.Stream
 }
 
 // NewConnectionHandler : todo
-func NewConnectionHandler(connection *net.Conn, storage *filestorage.StreamStorage, subs *subscribers.Subscribers, connectionID packet.ConnectionID) *ConnectionHandler {
-	return &ConnectionHandler{connectionID: connectionID, conn: connection, storage: storage, subscribers: subs, streamInfos: map[uint32]*StreamInfo{}}
+func NewConnectionHandler(connection *net.Conn, masterHandler *master.MasterCommandHandler, storage *filestorage.StreamStorage, subs *subscribers.Subscribers, connectionID packet.ConnectionID) *ConnectionHandler {
+	return &ConnectionHandler{connectionID: connectionID, masterHandler: masterHandler, conn: connection, storage: storage, subscribers: subs, streamInfos: map[uint32]*StreamInfo{}, chunkStreams: map[uint32]*chunk.Stream{}}
 }
 
 // HandleConnect : todo
@@ -143,9 +148,36 @@ func (in *ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (chan
 	return channel.ID{}, nil
 }
 
+func (in *ConnectionHandler) fetchOrAssoicateChunkStream(channelID channel.ID) *chunk.Stream {
+	stream := in.chunkStreams[channelID.Raw()]
+	if stream == nil {
+		stream = &chunk.Stream{}
+		in.chunkStreams[channelID.Raw()] = stream
+	}
+	return stream
+}
+
+func (in *ConnectionHandler) publishMasterStream(channel channel.ID, payload []byte) {
+	fakeClient := authorization.AdminClient{}
+	cmd := commands.NewPublishStream(channel, payload)
+	in.masterHandler.HandlePublishStream(fakeClient, cmd)
+}
+
 // HandleStreamData : todo
 func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 	log.Printf("%s %s", in.connectionID, cmd)
+	chunkStream := in.fetchOrAssoicateChunkStream(cmd.Channel())
+	chunkStream.Feed(cmd.Data())
+	foundChunk, fetchErr := chunkStream.FetchChunk()
+	if fetchErr != nil {
+		_, isNotDoneError := fetchErr.(*chunk.NotDoneError)
+		if isNotDoneError {
+		} else {
+			log.Printf("Fetcherror:%s", fetchErr)
+		}
+	} else {
+		in.publishMasterStream(cmd.Channel(), foundChunk.Payload())
+	}
 }
 
 // HandleLogin : todo

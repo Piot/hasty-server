@@ -2,6 +2,7 @@ package master
 
 import (
 	"log"
+	"sync"
 
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/commands"
@@ -12,20 +13,19 @@ import (
 
 // MasterCommandHandler : todo
 type MasterCommandHandler struct {
-	storage *filestorage.StreamStorage
-	subs    *subscribers.Subscribers
+	storage           *filestorage.StreamStorage
+	subs              *subscribers.Subscribers
+	publishStreamLock *sync.Mutex
 }
 
 // NewMasterCommandHandler : todo
-func NewMasterCommandHandler(storage *filestorage.StreamStorage, subs *subscribers.Subscribers) MasterCommandHandler {
-	return MasterCommandHandler{storage: storage, subs: subs}
+func NewMasterCommandHandler(storage *filestorage.StreamStorage, subs *subscribers.Subscribers) *MasterCommandHandler {
+	return &MasterCommandHandler{storage: storage, subs: subs, publishStreamLock: &sync.Mutex{}}
 }
 
 // HandlePublishStream : todo
 func (in *MasterCommandHandler) HandlePublishStream(client authorization.Client, cmd commands.PublishStream) error {
-	log.Printf("Master publish:%s", cmd)
 	channel := cmd.Channel()
-	log.Println("After Channel")
 	/*
 		authorization, authErr := client.GetChannelAuthorization(channel)
 		log.Println("After Channel")
@@ -37,6 +37,9 @@ func (in *MasterCommandHandler) HandlePublishStream(client authorization.Client,
 			return fmt.Errorf("Not allowed to write to %s", channel)
 		}
 	*/
+	in.publishStreamLock.Lock()
+	defer in.publishStreamLock.Unlock()
+	log.Printf("Master publish:%s", cmd)
 	streamFile, openErr := in.storage.OpenStream(channel)
 	if openErr != nil {
 		log.Printf("Couldn't open stream %s", channel)
