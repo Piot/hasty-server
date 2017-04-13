@@ -151,7 +151,7 @@ func (in *ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (chan
 func (in *ConnectionHandler) fetchOrAssoicateChunkStream(channelID channel.ID) *chunk.Stream {
 	stream := in.chunkStreams[channelID.Raw()]
 	if stream == nil {
-		stream = &chunk.Stream{}
+		stream = chunk.NewChunkStream(in.connectionID, channelID)
 		in.chunkStreams[channelID.Raw()] = stream
 	}
 	return stream
