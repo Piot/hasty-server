@@ -121,18 +121,21 @@ func (in *ConnectionHandler) HandleSubscribeStream(cmd commands.SubscribeStream)
 		if err != nil {
 			return
 		}
+		offset := v.Offset()
 
-		buf := make([]byte, 64*1024)
+		const maxSizeBuffer = 1 * 1024 * 1024
+		buf := make([]byte, maxSizeBuffer)
+		readFile.Seek(uint64(offset))
 		octetsRead, readErr := readFile.Read(buf)
 		if readErr != nil {
 			return
 		}
 		data := buf[:octetsRead]
-
-		octetsToSend := packetserializers.StreamDataToOctets(v.Channel(), 0, data)
+		lastOffset := int(offset) + octetsRead
+		octetsToSend := packetserializers.StreamDataToOctets(v.Channel(), offset, data)
 		in.sendPacket(octetsToSend)
 		infos := in.fetchOrCreateStreamInfo(v.Channel())
-		infos.lastOffsetSent = uint64(octetsRead)
+		infos.lastOffsetSent = uint64(lastOffset)
 		in.subscribers.AddStreamSubscriber(v.Channel(), in)
 	}
 }
