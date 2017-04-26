@@ -40,7 +40,7 @@ func (in *MasterCommandHandler) HandlePublishStream(client authorization.Client,
 	in.publishStreamLock.Lock()
 	defer in.publishStreamLock.Unlock()
 	log.Printf("Master publish:%s", cmd)
-	streamFile, openErr := in.storage.OpenStream(channel)
+	streamFile, openErr := in.storage.OpenOrCreateStream(channel)
 	if openErr != nil {
 		log.Printf("Couldn't open stream %s", channel)
 		return openErr

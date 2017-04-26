@@ -1,6 +1,7 @@
 package filestorage
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"strings"
@@ -69,13 +70,6 @@ func createStream(in *StreamStorage) (AppendFile, channel.ID, error) {
 
 // NewStream : creates a new stream
 func (in *StreamStorage) NewStream(path opath.OPath) (AppendFile, channel.ID, error) {
-	refOPath := refPath(path)
-	prepareRefErr := in.storage.WriteAtomic(refOPath, "", []byte(""))
-	if prepareRefErr != nil {
-		log.Printf("Prepare Ref err:%s", prepareRefErr)
-		return AppendFile{}, channel.ID{}, prepareRefErr
-	}
-
 	in.hacks = 0
 	streamFile, channelID, gaveUpErr := createStream(in)
 	if gaveUpErr != nil {
@@ -83,10 +77,26 @@ func (in *StreamStorage) NewStream(path opath.OPath) (AppendFile, channel.ID, er
 		return AppendFile{}, channelID, gaveUpErr
 	}
 
+	metaErr := in.writeMetaInformation(path, channelID)
+	if metaErr != nil {
+		return AppendFile{}, channelID, metaErr
+	}
+
+	return streamFile, channelID, nil
+}
+
+func (in *StreamStorage) writeMetaInformation(path opath.OPath, channelID channel.ID) error {
+	refOPath := refPath(path)
+	prepareRefErr := in.storage.WriteAtomic(refOPath, "", []byte(""))
+	if prepareRefErr != nil {
+		log.Printf("Prepare Ref err:%s", prepareRefErr)
+		return prepareRefErr
+	}
+
 	refFile, idErr := in.storage.AppendFile(refOPath)
 	if idErr != nil {
 		log.Printf("Atomic ID err:%s", idErr)
-		return AppendFile{}, channel.ID{}, idErr
+		return idErr
 	}
 	refFile.Append([]byte(channelID.ToHex() + "\n"))
 	refFile.Close()
@@ -95,9 +105,10 @@ func (in *StreamStorage) NewStream(path opath.OPath) (AppendFile, channel.ID, er
 	infoErr := in.storage.WriteAtomic(infoPath, ".info", []byte(path.ToString()+"\n"))
 	if infoErr != nil {
 		log.Printf("Atomic info err:%s", infoErr)
-		return AppendFile{}, channelID, infoErr
+		return infoErr
 	}
-	return streamFile, channelID, nil
+
+	return nil
 }
 
 func (in StreamStorage) getInfo(channel channel.ID) (string, error) {
@@ -121,6 +132,24 @@ func (in StreamStorage) OpenStream(channel channel.ID) (AppendFile, error) {
 	path := objectPath(channel)
 	streamFile, streamErr := in.storage.AppendFile(path)
 	return streamFile, streamErr
+}
+
+// OpenOrCreateStream : opens or creates a new stream
+func (in StreamStorage) OpenOrCreateStream(channel channel.ID) (AppendFile, error) {
+	_, infoErr := in.getInfo(channel)
+	if infoErr != nil {
+		createdStream, createStreamErr := tryToCreateStream(&in, channel)
+		if createStreamErr != nil {
+			return AppendFile{}, createStreamErr
+		}
+		fakeOPath, _ := opath.NewFromString(fmt.Sprintf("/fake/objects/@%0d", channel.Raw()))
+		metaErr := in.writeMetaInformation(fakeOPath, channel)
+		if metaErr != nil {
+			return AppendFile{}, metaErr
+		}
+		return createdStream, nil
+	}
+	return in.OpenStream(channel)
 }
 
 // ReadStream : opens a new stream

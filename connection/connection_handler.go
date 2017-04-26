@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/piot/hasty-protocol/authentication"
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/chunk"
 	"github.com/piot/hasty-protocol/commands"
@@ -18,18 +19,21 @@ import (
 	"github.com/piot/hasty-server/subscribers"
 )
 
+const systemChannelID = 0
+
 type StreamInfo struct {
 	lastOffsetSent uint64
 }
 
 type ConnectionHandler struct {
-	conn          *net.Conn
-	storage       *filestorage.StreamStorage
-	subscribers   *subscribers.Subscribers
-	streamInfos   map[uint32]*StreamInfo
-	connectionID  packet.ConnectionID
-	masterHandler *master.MasterCommandHandler
-	chunkStreams  map[uint32]*chunk.Stream
+	conn               *net.Conn
+	storage            *filestorage.StreamStorage
+	subscribers        *subscribers.Subscribers
+	streamInfos        map[uint32]*StreamInfo
+	connectionID       packet.ConnectionID
+	masterHandler      *master.MasterCommandHandler
+	chunkStreams       map[uint32]*chunk.Stream
+	authenticationInfo authentication.Info
 }
 
 // NewConnectionHandler : todo
@@ -54,9 +58,9 @@ func (in *ConnectionHandler) sendPong(echoedTime timestamp.Time) {
 	in.sendPacket(octetsToSend)
 }
 
-func (in *ConnectionHandler) sendLoginResult(worked bool) {
+func (in *ConnectionHandler) sendLoginResult(worked bool, channelID channel.ID) {
 	log.Printf("%s sendLoginResult %t", in.connectionID, worked)
-	octetsToSend := packetserializers.LoginResultToOctets()
+	octetsToSend := packetserializers.LoginResultToOctets(channelID)
 	in.sendPacket(octetsToSend)
 }
 
@@ -162,6 +166,7 @@ func (in *ConnectionHandler) fetchOrAssoicateChunkStream(channelID channel.ID) *
 
 func (in *ConnectionHandler) publishMasterStream(channel channel.ID, payload []byte) {
 	fakeClient := authorization.AdminClient{}
+	log.Printf("publishing to channel: %v data: %v", channel, payload)
 	cmd := commands.NewPublishStream(channel, payload)
 	in.masterHandler.HandlePublishStream(fakeClient, cmd)
 }
@@ -186,8 +191,19 @@ func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 // HandleLogin : todo
 func (in *ConnectionHandler) HandleLogin(cmd commands.Login) error {
 	log.Printf("%s", cmd)
-	in.sendLoginResult(true)
+	/*	userInfo, userInfoErr := users.FindOrCreateUserInfo(cmd.Username())
+		if userInfoErr != nil {
+			return userInfoErr
+		}
+		in.sendLoginResult(true, userInfo.Channel())
+	*/
 	return nil
+}
+
+func (in *ConnectionHandler) publishSystemStream(payload []byte) {
+	log.Printf("Publishing to system stream %v", payload)
+	channelToPublishTo, _ := channel.NewFromID(systemChannelID)
+	in.publishMasterStream(channelToPublishTo, payload)
 }
 
 func (in *ConnectionHandler) sendPacket(octets []byte) {
