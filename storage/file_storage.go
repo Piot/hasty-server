@@ -1,6 +1,7 @@
 package filestorage
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -50,6 +51,7 @@ func openFile(completePath string, flags int) (*os.File, error) {
 
 // NewFile : Creates a new file
 func (in FileStorage) NewFile(opath opath.OPath, extension string) (AppendFile, error) {
+	log.Printf("NewFile '%v'", opath)
 	completePath, completeErr := in.opathToFullPath(opath)
 	if len(extension) > 0 {
 		completePath += extension
@@ -60,12 +62,12 @@ func (in FileStorage) NewFile(opath opath.OPath, extension string) (AppendFile, 
 	directory := path.Dir(completePath)
 	mkdirErr := os.MkdirAll(directory, DefaultDirectoryPermission)
 	if mkdirErr != nil {
-		return AppendFile{}, mkdirErr
+		return AppendFile{}, fmt.Errorf("NewFile err: '%v'", mkdirErr)
 	}
 
 	fileHandle, openErr := openFile(completePath, os.O_RDWR|os.O_CREATE|os.O_EXCL)
 	if openErr != nil {
-		return AppendFile{}, openErr
+		return AppendFile{}, fmt.Errorf("NewFile Create err '%v'", openErr)
 	}
 	return NewAppendFile(fileHandle, opath)
 }
@@ -119,7 +121,7 @@ func (in FileStorage) ReadAtomic(opath opath.OPath, extension string, data []byt
 	// log.Printf("ReadAtomic:%s extension:%s", opath, extension)
 	file, createErr := in.ReadFile(opath, extension)
 	if createErr != nil {
-		log.Printf("Create error:%s", createErr)
+		log.Printf("Open error:%s", createErr)
 		return 0, createErr
 	}
 	octetCount, readErr := file.Read(data)

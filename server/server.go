@@ -12,6 +12,7 @@ import (
 	"github.com/piot/hasty-server/storage"
 	"github.com/piot/hasty-server/subscriber"
 	"github.com/piot/hasty-server/subscribers"
+	"github.com/piot/hasty-server/users"
 	listenserver "github.com/piot/listen-server/server"
 )
 
@@ -19,6 +20,7 @@ type HastyServer struct {
 	listenServer   listenserver.Server
 	commandHandler commandhandler.CommandHandler
 	streamStorage  *filestorage.StreamStorage
+	userStorage    *users.Storage
 	subscribers    *subscribers.Subscribers
 	master         *master.MasterCommandHandler
 }
@@ -27,29 +29,32 @@ func NewServer() *HastyServer {
 	return &HastyServer{}
 }
 
-func setupEnvironment() (*master.MasterCommandHandler, filestorage.StreamStorage, *subscribers.Subscribers, error) {
+func setupEnvironment() (*master.MasterCommandHandler, filestorage.StreamStorage, *users.Storage, *subscribers.Subscribers, error) {
 	storage, storageErr := filestorage.NewFileStorage(".hasty")
 	if storageErr != nil {
-		return &master.MasterCommandHandler{}, filestorage.StreamStorage{}, nil, storageErr
+		return &master.MasterCommandHandler{}, filestorage.StreamStorage{}, nil, nil, storageErr
 	}
 
 	streamStorage, streamStorageErr := filestorage.NewStreamStorage(storage)
 	if streamStorageErr != nil {
-		return &master.MasterCommandHandler{}, filestorage.StreamStorage{}, nil, storageErr
+		return &master.MasterCommandHandler{}, filestorage.StreamStorage{}, nil, nil, storageErr
 	}
 
 	subs := subscribers.NewSubscribers()
 
 	master := master.NewMasterCommandHandler(&streamStorage, &subs)
 
-	return master, streamStorage, &subs, nil
+	userStorage, _ := users.NewStorage(&streamStorage, &storage)
+
+	return master, streamStorage, &userStorage, &subs, nil
 }
 
 func (in *HastyServer) Listen(host string, cert string, certPrivateKey string) error {
-	master, streamStorage, subs, _ := setupEnvironment()
+	master, streamStorage, userStorage, subs, _ := setupEnvironment()
 	sub := subscriber.Subscriber{}
 	in.subscribers = subs
 	in.streamStorage = &streamStorage
+	in.userStorage = userStorage
 	in.master = master
 	in.commandHandler = commandhandler.NewCommandHandler(&sub, master)
 	in.listenServer = listenserver.NewServer()
@@ -61,7 +66,7 @@ func (in *HastyServer) CreateConnection(conn *net.Conn, connectionIdentity packe
 	log.Print("HastyServer: CreateConnection")
 	delegator := handler.NewPacketHandlerDelegator()
 	delegator.AddHandler(in.commandHandler)
-	connectionHandler := connection.NewConnectionHandler(conn, in.master, in.streamStorage, in.subscribers, connectionIdentity)
+	connectionHandler := connection.NewConnectionHandler(conn, in.master, in.streamStorage, in.userStorage, in.subscribers, connectionIdentity)
 	delegator.AddHandler(connectionHandler)
 	return &delegator, nil
 }
