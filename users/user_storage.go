@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/piot/chat-server/user"
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/opath"
+	"github.com/piot/hasty-protocol/user"
 	"github.com/piot/hasty-server/storage"
 )
 

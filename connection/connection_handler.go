@@ -6,7 +6,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/piot/chat-server/user"
 	"github.com/piot/hasty-protocol/authentication"
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/chunk"
@@ -15,6 +14,7 @@ import (
 	"github.com/piot/hasty-protocol/packetserializers"
 	"github.com/piot/hasty-protocol/serializer"
 	"github.com/piot/hasty-protocol/timestamp"
+	"github.com/piot/hasty-protocol/user"
 	"github.com/piot/hasty-server/authorization"
 	"github.com/piot/hasty-server/master"
 	"github.com/piot/hasty-server/storage"
@@ -199,7 +199,7 @@ func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 
 func convertFromUsernameToUserID(username string) user.ID {
 	userIDValue, _ := strconv.ParseUint(username, 10, 64)
-	userID, _ := user.NewFromID(userIDValue)
+	userID, _ := user.NewID(userIDValue)
 
 	return userID
 }
@@ -213,6 +213,7 @@ func (in *ConnectionHandler) HandleLogin(cmd commands.Login) error {
 		log.Printf("ERROR:%v", userInfoErr)
 		return userInfoErr
 	}
+	in.authenticationInfo = authentication.NewInfo(userID, userAssignedChannel)
 	in.sendLoginResult(true, userAssignedChannel)
 
 	return nil
