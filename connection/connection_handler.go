@@ -180,9 +180,20 @@ func (in *ConnectionHandler) publishMasterStream(channel channel.ID, payload []b
 	in.masterHandler.HandlePublishStream(fakeClient, cmd)
 }
 
-// HandleStreamData : todo
-func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
-	log.Printf("%s %s", in.connectionID, cmd)
+func (in *ConnectionHandler) publishNormalStream(channel channel.ID, payload []byte) {
+	fakeClient := authorization.AdminClient{}
+	hexPayload := hex.Dump(payload)
+	log.Printf("publishing to channel: %v data: %v", channel, hexPayload)
+	cmd := commands.NewPublishStream(channel, payload)
+	in.masterHandler.HandlePublishStream(fakeClient, cmd)
+}
+
+func isMasterStream(channelID channel.ID) bool {
+	return channelID.Raw() == 3
+}
+
+func (in *ConnectionHandler) handleStreamDataForMasterStream(cmd commands.StreamData) {
+	log.Printf("Stream Data for Master Stream! %v", cmd)
 	chunkStream := in.fetchOrAssoicateChunkStream(cmd.Channel())
 	chunkStream.Feed(cmd.Data())
 	foundChunk, fetchErr := chunkStream.FetchChunk()
@@ -194,6 +205,21 @@ func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 		}
 	} else {
 		in.publishMasterStream(cmd.Channel(), foundChunk.Payload(), in.authenticationInfo)
+	}
+}
+
+func (in *ConnectionHandler) handleStreamDataForNormalStream(cmd commands.StreamData) {
+	log.Printf("Stream Data for Normal Stream! %v", cmd)
+	in.publishNormalStream(cmd.Channel(), cmd.Data())
+}
+
+// HandleStreamData : todo
+func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
+	log.Printf("%s %s", in.connectionID, cmd)
+	if isMasterStream(cmd.Channel()) {
+		in.handleStreamDataForMasterStream(cmd)
+	} else {
+		in.handleStreamDataForNormalStream(cmd)
 	}
 }
 
