@@ -2,6 +2,7 @@ package filestorage
 
 import (
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -12,7 +13,13 @@ type ReadFile struct {
 
 // Read : reads from file
 func (in ReadFile) Read(data []byte) (n int, err error) {
-	return in.file.Read(data)
+
+	count, readErr := in.file.Read(data)
+	if readErr == io.EOF {
+		return 0, nil
+	}
+
+	return count, readErr
 }
 
 // Seek : Seeks into the file
