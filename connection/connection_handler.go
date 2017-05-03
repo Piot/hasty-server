@@ -128,23 +128,24 @@ func (in *ConnectionHandler) HandleSubscribeStream(cmd commands.SubscribeStream)
 
 	for _, v := range cmd.Infos() {
 		readFile, err := in.storage.ReadStream(v.Channel())
-
-		if err != nil {
-			return
+		lastOffset := 0
+		if err == nil {
+			offset := v.Offset()
+			const maxSizeBuffer = 1 * 1024 * 1024
+			buf := make([]byte, maxSizeBuffer)
+			readFile.Seek(uint64(offset))
+			octetsRead, readErr := readFile.Read(buf)
+			if readErr == nil {
+				data := buf[:octetsRead]
+				lastOffset = int(offset) + octetsRead
+				octetsToSend := packetserializers.StreamDataToOctets(v.Channel(), offset, data)
+				in.sendPacket(octetsToSend)
+			} else {
+				log.Printf("Couldn't read. What is that all about? %v", readErr)
+			}
+		} else {
+			log.Printf("Stream %v does not exist yet. You are still subscribed to it", v)
 		}
-		offset := v.Offset()
-
-		const maxSizeBuffer = 1 * 1024 * 1024
-		buf := make([]byte, maxSizeBuffer)
-		readFile.Seek(uint64(offset))
-		octetsRead, readErr := readFile.Read(buf)
-		if readErr != nil {
-			return
-		}
-		data := buf[:octetsRead]
-		lastOffset := int(offset) + octetsRead
-		octetsToSend := packetserializers.StreamDataToOctets(v.Channel(), offset, data)
-		in.sendPacket(octetsToSend)
 		infos := in.fetchOrCreateStreamInfo(v.Channel())
 		infos.lastOffsetSent = uint64(lastOffset)
 		in.subscribers.AddStreamSubscriber(v.Channel(), in)
