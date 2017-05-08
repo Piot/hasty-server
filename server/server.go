@@ -56,7 +56,7 @@ func (in *HastyServer) Listen(host string, cert string, certPrivateKey string) e
 	in.streamStorage = &streamStorage
 	in.userStorage = userStorage
 	in.master = master
-	in.commandHandler = commandhandler.NewCommandHandler(&sub, master)
+	in.commandHandler = commandhandler.NewCommandHandler(&sub, master, userStorage)
 	in.listenServer = listenserver.NewServer()
 	in.listenServer.Listen(in, host, cert, certPrivateKey)
 	return nil

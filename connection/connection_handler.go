@@ -89,6 +89,12 @@ func (in *ConnectionHandler) HandlePublishStream(cmd commands.PublishStream) err
 	return nil
 }
 
+// HandlePublishStreamUser : todo
+func (in *ConnectionHandler) HandlePublishStreamUser(cmd commands.PublishStreamUser) error {
+	log.Printf("%s %s", in.connectionID, cmd)
+	return nil
+}
+
 // StreamChanged : todo
 func (in *ConnectionHandler) StreamChanged(channelID channel.ID) {
 	info := in.streamInfos[channelID.Raw()]

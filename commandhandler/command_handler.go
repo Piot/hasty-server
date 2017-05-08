@@ -7,17 +7,19 @@ import (
 	"github.com/piot/hasty-protocol/commands"
 	"github.com/piot/hasty-server/master"
 	"github.com/piot/hasty-server/subscriber"
+	"github.com/piot/hasty-server/users"
 )
 
 // CommandHandler : todo
 type CommandHandler struct {
-	subscriber *subscriber.Subscriber
-	master     *master.MasterCommandHandler
+	subscriber  *subscriber.Subscriber
+	master      *master.MasterCommandHandler
+	userStorage *users.Storage
 }
 
 // NewCommandHandler : todo
-func NewCommandHandler(subscriber *subscriber.Subscriber, master *master.MasterCommandHandler) CommandHandler {
-	return CommandHandler{subscriber: subscriber, master: master}
+func NewCommandHandler(subscriber *subscriber.Subscriber, master *master.MasterCommandHandler, userStorage *users.Storage) CommandHandler {
+	return CommandHandler{subscriber: subscriber, master: master, userStorage: userStorage}
 }
 
 // HandleConnect : todo
@@ -34,6 +36,14 @@ func (in CommandHandler) HandlePing(cmd commands.Ping) {
 func (in CommandHandler) HandlePong(cmd commands.Pong) {
 }
 
+// HandlePublishStreamUser : todo
+func (in CommandHandler) HandlePublishStreamUser(cmd commands.PublishStreamUser) error {
+	log.Println("Handle publish user:", cmd)
+	channelID, _ := in.userStorage.FindOrCreateUserInfo(cmd.User())
+	publishStreamCmd := commands.NewPublishStream(channelID, cmd.Chunk())
+	return in.master.HandlePublishStream(nil, publishStreamCmd)
+}
+
 // HandlePublishStream : todo
 func (in CommandHandler) HandlePublishStream(cmd commands.PublishStream) error {
 	log.Println("Handle publish:", cmd)
@@ -43,10 +53,6 @@ func (in CommandHandler) HandlePublishStream(cmd commands.PublishStream) error {
 // HandleSubscribeStream : todo
 func (in CommandHandler) HandleSubscribeStream(cmd commands.SubscribeStream) {
 	log.Println("Handle subscribe:", cmd)
-	if in.subscriber == nil {
-		log.Println("GARHGH")
-	}
-	// in.subscriber.Subscribe(cmd.ChannelID(), subscriber.High)
 }
 
 // HandleUnsubscribeStream : todo
