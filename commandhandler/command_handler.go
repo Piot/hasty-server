@@ -83,6 +83,10 @@ func (in CommandHandler) HandleLogin(cmd commands.Login) error {
 	return nil
 }
 
+// HandleAuthenticated : todo
+func (in CommandHandler) HandleAuthenticated(cmd commands.Authenticated) {
+}
+
 // HandleTransportDisconnect : todo
 func (in CommandHandler) HandleTransportDisconnect() {
 }

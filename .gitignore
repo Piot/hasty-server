@@ -4,3 +4,5 @@ temp/
 *.sh
 start
 .hasty/
+.config/
+

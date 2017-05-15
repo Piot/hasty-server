@@ -1,10 +1,10 @@
 package connection
 
 import (
+	"bytes"
 	"encoding/hex"
 	"log"
 	"net"
-	"strconv"
 
 	"github.com/piot/hasty-protocol/authentication"
 	"github.com/piot/hasty-protocol/channel"
@@ -14,15 +14,16 @@ import (
 	"github.com/piot/hasty-protocol/packetserializers"
 	"github.com/piot/hasty-protocol/serializer"
 	"github.com/piot/hasty-protocol/timestamp"
-	"github.com/piot/hasty-protocol/user"
+	"github.com/piot/hasty-server/authenticator"
 	"github.com/piot/hasty-server/authorization"
+	"github.com/piot/hasty-server/config"
 	"github.com/piot/hasty-server/master"
 	"github.com/piot/hasty-server/storage"
 	"github.com/piot/hasty-server/subscribers"
 	"github.com/piot/hasty-server/users"
 )
 
-const systemChannelID = 0
+const systemChannelID = 3
 
 // StreamInfo : todo
 type StreamInfo struct {
@@ -39,12 +40,13 @@ type ConnectionHandler struct {
 	connectionID       packet.ConnectionID
 	masterHandler      *master.MasterCommandHandler
 	chunkStreams       map[uint32]*chunk.Stream
-	authenticationInfo authentication.Info
+	authenticationInfo authentication.Authenticated
+	hastyConfig        config.HastyConfig
 }
 
 // NewConnectionHandler : todo
-func NewConnectionHandler(connection *net.Conn, masterHandler *master.MasterCommandHandler, storage *filestorage.StreamStorage, userStorage *users.Storage, subs *subscribers.Subscribers, connectionID packet.ConnectionID) *ConnectionHandler {
-	return &ConnectionHandler{connectionID: connectionID, masterHandler: masterHandler, conn: connection, storage: storage, userStorage: userStorage, subscribers: subs, streamInfos: map[uint32]*StreamInfo{}, chunkStreams: map[uint32]*chunk.Stream{}}
+func NewConnectionHandler(connection *net.Conn, masterHandler *master.MasterCommandHandler, storage *filestorage.StreamStorage, userStorage *users.Storage, subs *subscribers.Subscribers, hastyConfig config.HastyConfig, connectionID packet.ConnectionID) *ConnectionHandler {
+	return &ConnectionHandler{connectionID: connectionID, masterHandler: masterHandler, conn: connection, storage: storage, userStorage: userStorage, subscribers: subs, hastyConfig: hastyConfig, streamInfos: map[uint32]*StreamInfo{}, chunkStreams: map[uint32]*chunk.Stream{}}
 }
 
 // HandleConnect : todo
@@ -178,11 +180,12 @@ func (in *ConnectionHandler) fetchOrAssoicateChunkStream(channelID channel.ID) *
 	return stream
 }
 
-func (in *ConnectionHandler) publishMasterStream(channel channel.ID, payload []byte, authenticationInfo authentication.Info) {
+func (in *ConnectionHandler) publishMasterStream(channel channel.ID, payload []byte, authenticated authentication.Authenticated) {
 	fakeClient := authorization.AdminClient{}
 	hexPayload := hex.Dump(payload)
 	log.Printf("publishing to channel: %v data: %v", channel, hexPayload)
-	authenticationPayload, _ := packetserializers.AuthenticationChunkToOctets(authenticationInfo, payload)
+	info := authentication.NewInfo(authenticated.UserID())
+	authenticationPayload, _ := packetserializers.AuthenticationChunkToOctets(info, payload)
 	cmd := commands.NewPublishStream(channel, authenticationPayload)
 	in.masterHandler.HandlePublishStream(fakeClient, cmd)
 }
@@ -230,32 +233,50 @@ func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 	}
 }
 
-func convertFromUsernameToUserID(username string) user.ID {
-	userIDValue, _ := strconv.ParseUint(username, 10, 64)
-	userID, _ := user.NewID(userIDValue)
-
-	return userID
-}
-
 // HandleLogin : todo
 func (in *ConnectionHandler) HandleLogin(cmd commands.Login) error {
 	log.Printf("%s", cmd)
-	userID := convertFromUsernameToUserID(cmd.Username())
+
+	restAuth := in.hastyConfig.Authentication
+	userID, realname, authenticationErr := authenticator.Authenticate(restAuth.URL, restAuth.Path, restAuth.Headers[0].Name, restAuth.Headers[0].Value, cmd.Password())
+	if authenticationErr != nil {
+		log.Printf("Error: %v", authenticationErr)
+		return authenticationErr
+	}
 	userAssignedChannel, userInfoErr := in.userStorage.FindOrCreateUserInfo(userID)
 	if userInfoErr != nil {
 		log.Printf("ERROR:%v", userInfoErr)
 		return userInfoErr
 	}
-	in.authenticationInfo = authentication.NewInfo(userID, userAssignedChannel)
+	in.authenticationInfo = authentication.NewAuthenticated(userID, userAssignedChannel, realname)
+	log.Printf("Logged in:%s", in.authenticationInfo)
 	in.sendLoginResult(true, userAssignedChannel)
+
+	authenticatedPayload := packetserializers.AuthenticatedToOctets(in.authenticationInfo)
+	in.publishSystemStream(authenticatedPayload)
 
 	return nil
 }
 
+// HandleAuthenticated : todo
+func (in *ConnectionHandler) HandleAuthenticated(cmd commands.Authenticated) {
+}
+
 func (in *ConnectionHandler) publishSystemStream(payload []byte) {
 	log.Printf("Publishing to system stream %v", payload)
+
+	buf := new(bytes.Buffer)
+	lengthBuf, lengthErr := serializer.SmallLengthToOctets(uint16(len(payload)))
+	if lengthErr != nil {
+		log.Printf("We couldn't write length")
+		return
+	}
+	buf.Write(lengthBuf)
+	buf.Write(payload)
+	encapsulatedPayload := buf.Bytes()
+
 	channelToPublishTo, _ := channel.NewFromID(systemChannelID)
-	in.publishMasterStream(channelToPublishTo, payload, in.authenticationInfo)
+	in.publishMasterStream(channelToPublishTo, encapsulatedPayload, in.authenticationInfo)
 }
 
 func (in *ConnectionHandler) sendPacket(octets []byte) {

@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/fatih/color"
+	"github.com/piot/hasty-server/config"
 	"github.com/piot/hasty-server/server"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -19,7 +20,12 @@ func main() {
 	color.Cyan("Hastyd v0.1.1")
 	kingpin.Parse()
 	s := hastyserver.NewServer()
-	listenErr := s.Listen(*host, *cert, *key)
+	config, err := config.LoadConfig()
+	if err != nil {
+		return
+	}
+	log.Printf("config url:%v", config.Authentication.URL)
+	listenErr := s.Listen(*host, *cert, *key, config)
 	if listenErr != nil {
 		log.Printf("Error:%s", listenErr)
 	}

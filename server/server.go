@@ -7,6 +7,7 @@ import (
 	"github.com/piot/hasty-protocol/handler"
 	"github.com/piot/hasty-protocol/packet"
 	"github.com/piot/hasty-server/commandhandler"
+	"github.com/piot/hasty-server/config"
 	"github.com/piot/hasty-server/connection"
 	"github.com/piot/hasty-server/master"
 	"github.com/piot/hasty-server/storage"
@@ -23,6 +24,7 @@ type HastyServer struct {
 	userStorage    *users.Storage
 	subscribers    *subscribers.Subscribers
 	master         *master.MasterCommandHandler
+	hastyConfig    config.HastyConfig
 }
 
 func NewServer() *HastyServer {
@@ -49,12 +51,13 @@ func setupEnvironment() (*master.MasterCommandHandler, filestorage.StreamStorage
 	return master, streamStorage, &userStorage, &subs, nil
 }
 
-func (in *HastyServer) Listen(host string, cert string, certPrivateKey string) error {
+func (in *HastyServer) Listen(host string, cert string, certPrivateKey string, hastyConfig config.HastyConfig) error {
 	master, streamStorage, userStorage, subs, _ := setupEnvironment()
 	sub := subscriber.Subscriber{}
 	in.subscribers = subs
 	in.streamStorage = &streamStorage
 	in.userStorage = userStorage
+	in.hastyConfig = hastyConfig
 	in.master = master
 	in.commandHandler = commandhandler.NewCommandHandler(&sub, master, userStorage)
 	in.listenServer = listenserver.NewServer()
@@ -66,7 +69,7 @@ func (in *HastyServer) CreateConnection(conn *net.Conn, connectionIdentity packe
 	log.Print("HastyServer: CreateConnection")
 	delegator := handler.NewPacketHandlerDelegator()
 	delegator.AddHandler(in.commandHandler)
-	connectionHandler := connection.NewConnectionHandler(conn, in.master, in.streamStorage, in.userStorage, in.subscribers, connectionIdentity)
+	connectionHandler := connection.NewConnectionHandler(conn, in.master, in.streamStorage, in.userStorage, in.subscribers, in.hastyConfig, connectionIdentity)
 	delegator.AddHandler(connectionHandler)
 	return &delegator, nil
 }
