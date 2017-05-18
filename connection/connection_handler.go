@@ -12,6 +12,7 @@ import (
 	"github.com/piot/hasty-protocol/commands"
 	"github.com/piot/hasty-protocol/packet"
 	"github.com/piot/hasty-protocol/packetserializers"
+	"github.com/piot/hasty-protocol/realmname"
 	"github.com/piot/hasty-protocol/serializer"
 	"github.com/piot/hasty-protocol/timestamp"
 	"github.com/piot/hasty-server/authenticator"
@@ -33,7 +34,7 @@ type StreamInfo struct {
 
 // ConnectionHandler : todo
 type ConnectionHandler struct {
-	realm              string
+	realm              realmname.Name
 	conn               *net.Conn
 	storage            *filestorage.StreamStorage
 	realmRoot          *realm.RealmRoot
