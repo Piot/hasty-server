@@ -6,60 +6,35 @@ import (
 
 	"github.com/piot/hasty-protocol/handler"
 	"github.com/piot/hasty-protocol/packet"
-	"github.com/piot/hasty-server/commandhandler"
 	"github.com/piot/hasty-server/config"
 	"github.com/piot/hasty-server/connection"
-	"github.com/piot/hasty-server/master"
-	"github.com/piot/hasty-server/storage"
-	"github.com/piot/hasty-server/subscriber"
-	"github.com/piot/hasty-server/subscribers"
-	"github.com/piot/hasty-server/users"
+	"github.com/piot/hasty-server/realm"
 	listenserver "github.com/piot/listen-server/server"
 )
 
 type HastyServer struct {
-	listenServer   listenserver.Server
-	commandHandler commandhandler.CommandHandler
-	streamStorage  *filestorage.StreamStorage
-	userStorage    *users.Storage
-	subscribers    *subscribers.Subscribers
-	master         *master.MasterCommandHandler
-	hastyConfig    config.HastyConfig
+	listenServer listenserver.Server
+	hastyConfig  config.HastyConfig
+	realmRoot    *realm.RealmRoot
 }
 
 func NewServer() *HastyServer {
 	return &HastyServer{}
 }
 
-func setupEnvironment() (*master.MasterCommandHandler, filestorage.StreamStorage, *users.Storage, *subscribers.Subscribers, error) {
-	storage, storageErr := filestorage.NewFileStorage(".hasty")
-	if storageErr != nil {
-		return &master.MasterCommandHandler{}, filestorage.StreamStorage{}, nil, nil, storageErr
+func setupEnvironment() (*realm.RealmRoot, error) {
+	realmRoot, realmRootErr := realm.NewRealmRoot(".hasty")
+	if realmRootErr != nil {
+		return nil, realmRootErr
 	}
 
-	streamStorage, streamStorageErr := filestorage.NewStreamStorage(storage)
-	if streamStorageErr != nil {
-		return &master.MasterCommandHandler{}, filestorage.StreamStorage{}, nil, nil, storageErr
-	}
-
-	subs := subscribers.NewSubscribers()
-
-	master := master.NewMasterCommandHandler(&streamStorage, &subs)
-
-	userStorage, _ := users.NewStorage(&streamStorage, &storage)
-
-	return master, streamStorage, &userStorage, &subs, nil
+	return realmRoot, nil
 }
 
 func (in *HastyServer) Listen(host string, cert string, certPrivateKey string, hastyConfig config.HastyConfig) error {
-	master, streamStorage, userStorage, subs, _ := setupEnvironment()
-	sub := subscriber.Subscriber{}
-	in.subscribers = subs
-	in.streamStorage = &streamStorage
-	in.userStorage = userStorage
+	realmRoot, _ := setupEnvironment()
+	in.realmRoot = realmRoot
 	in.hastyConfig = hastyConfig
-	in.master = master
-	in.commandHandler = commandhandler.NewCommandHandler(&sub, master, userStorage)
 	in.listenServer = listenserver.NewServer()
 	in.listenServer.Listen(in, host, cert, certPrivateKey)
 	return nil
@@ -67,9 +42,6 @@ func (in *HastyServer) Listen(host string, cert string, certPrivateKey string, h
 
 func (in *HastyServer) CreateConnection(conn *net.Conn, connectionIdentity packet.ConnectionID) (handler.PacketHandler, error) {
 	log.Print("HastyServer: CreateConnection")
-	delegator := handler.NewPacketHandlerDelegator()
-	delegator.AddHandler(in.commandHandler)
-	connectionHandler := connection.NewConnectionHandler(conn, in.master, in.streamStorage, in.userStorage, in.subscribers, in.hastyConfig, connectionIdentity)
-	delegator.AddHandler(connectionHandler)
-	return &delegator, nil
+	connectionHandler := connection.NewConnectionHandler(conn, in.realmRoot, in.hastyConfig, connectionIdentity)
+	return connectionHandler, nil
 }

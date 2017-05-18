@@ -18,6 +18,7 @@ import (
 	"github.com/piot/hasty-server/authorization"
 	"github.com/piot/hasty-server/config"
 	"github.com/piot/hasty-server/master"
+	"github.com/piot/hasty-server/realm"
 	"github.com/piot/hasty-server/storage"
 	"github.com/piot/hasty-server/subscribers"
 	"github.com/piot/hasty-server/users"
@@ -32,8 +33,10 @@ type StreamInfo struct {
 
 // ConnectionHandler : todo
 type ConnectionHandler struct {
+	realm              string
 	conn               *net.Conn
 	storage            *filestorage.StreamStorage
+	realmRoot          *realm.RealmRoot
 	userStorage        *users.Storage
 	subscribers        *subscribers.Subscribers
 	streamInfos        map[uint32]*StreamInfo
@@ -45,15 +48,14 @@ type ConnectionHandler struct {
 }
 
 // NewConnectionHandler : todo
-func NewConnectionHandler(connection *net.Conn, masterHandler *master.MasterCommandHandler, storage *filestorage.StreamStorage, userStorage *users.Storage, subs *subscribers.Subscribers, hastyConfig config.HastyConfig, connectionID packet.ConnectionID) *ConnectionHandler {
-	return &ConnectionHandler{connectionID: connectionID, masterHandler: masterHandler, conn: connection, storage: storage, userStorage: userStorage, subscribers: subs, hastyConfig: hastyConfig, streamInfos: map[uint32]*StreamInfo{}, chunkStreams: map[uint32]*chunk.Stream{}}
+func NewConnectionHandler(connection *net.Conn, realmRoot *realm.RealmRoot, hastyConfig config.HastyConfig, connectionID packet.ConnectionID) *ConnectionHandler {
+	return &ConnectionHandler{connectionID: connectionID, realmRoot: realmRoot, conn: connection, hastyConfig: hastyConfig, streamInfos: map[uint32]*StreamInfo{}, chunkStreams: map[uint32]*chunk.Stream{}}
 }
 
 // HandleConnect : todo
 func (in *ConnectionHandler) HandleConnect(cmd commands.Connect) error {
 	log.Printf("%s %s", in.connectionID, cmd)
-
-	// _ := commands.NewConnectResult(cmd.Realm(), cmd.ProtocolVersion())
+	in.realm = cmd.Realm()
 	octetsToSend := packetserializers.ConnectResultToOctets()
 	in.sendPacket(octetsToSend)
 	return nil
@@ -85,16 +87,31 @@ func (in *ConnectionHandler) HandlePong(cmd commands.Pong) {
 	log.Printf("%s Latency: %d ms", in.connectionID, latency)
 }
 
-// HandlePublishStream : todo
-func (in *ConnectionHandler) HandlePublishStream(cmd commands.PublishStream) error {
-	log.Printf("%s %s", in.connectionID, cmd)
-	return nil
+// HandleCreateStream : todo
+func (in *ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (channel.ID, error) {
+	log.Println("Handle create stream:", cmd)
+	channel, createErr := in.masterHandler.HandleCreateStream(nil, cmd)
+	if createErr != nil {
+		return channel, createErr
+	}
+
+	//	in.subscriber.HandleCreateStream(channel)
+
+	return channel, nil
 }
 
 // HandlePublishStreamUser : todo
 func (in *ConnectionHandler) HandlePublishStreamUser(cmd commands.PublishStreamUser) error {
-	log.Printf("%s %s", in.connectionID, cmd)
-	return nil
+	log.Println("Handle publish user:", cmd)
+	channelID, _ := in.userStorage.FindOrCreateUserInfo(cmd.User())
+	publishStreamCmd := commands.NewPublishStream(channelID, cmd.Chunk())
+	return in.masterHandler.HandlePublishStream(nil, publishStreamCmd)
+}
+
+// HandlePublishStream : todo
+func (in *ConnectionHandler) HandlePublishStream(cmd commands.PublishStream) error {
+	log.Println("Handle publish:", cmd)
+	return in.masterHandler.HandlePublishStream(nil, cmd)
 }
 
 // StreamChanged : todo
@@ -162,13 +179,8 @@ func (in *ConnectionHandler) HandleSubscribeStream(cmd commands.SubscribeStream)
 
 // HandleUnsubscribeStream : todo
 func (in *ConnectionHandler) HandleUnsubscribeStream(cmd commands.UnsubscribeStream) {
-	log.Printf("%s %s", in.connectionID, cmd)
-}
-
-// HandleCreateStream : todo
-func (in *ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (channel.ID, error) {
-	log.Printf("%s %s", in.connectionID, cmd)
-	return channel.ID{}, nil
+	log.Println("Handle unsubscribe:", cmd)
+	//in.masterHandler.UnsubscribeStream(cmd.Channel())
 }
 
 func (in *ConnectionHandler) fetchOrAssoicateChunkStream(channelID channel.ID) *chunk.Stream {
@@ -235,7 +247,7 @@ func (in *ConnectionHandler) HandleStreamData(cmd commands.StreamData) {
 
 // HandleLogin : todo
 func (in *ConnectionHandler) HandleLogin(cmd commands.Login) error {
-	log.Printf("%s", cmd)
+	log.Printf("%s realm: '%s'", cmd, in.realm)
 
 	restAuth := in.hastyConfig.Authentication
 	userID, realname, authenticationErr := authenticator.Authenticate(restAuth.URL, restAuth.Path, restAuth.Headers[0].Name, restAuth.Headers[0].Value, cmd.Password())
@@ -243,11 +255,23 @@ func (in *ConnectionHandler) HandleLogin(cmd commands.Login) error {
 		log.Printf("Error: %v", authenticationErr)
 		return authenticationErr
 	}
+
+	// User is authenticated, we can bring up the realm-specifics
+	realmInfo, realmErr := in.realmRoot.GetRealmInfo(in.realm)
+	if realmErr != nil {
+		return realmErr
+	}
+	in.masterHandler = realmInfo.MasterCommand()
+	in.storage = realmInfo.StreamStorage()
+	in.userStorage = realmInfo.UserStorage()
+	in.subscribers = realmInfo.Subscribers()
+
 	userAssignedChannel, userInfoErr := in.userStorage.FindOrCreateUserInfo(userID)
 	if userInfoErr != nil {
 		log.Printf("ERROR:%v", userInfoErr)
 		return userInfoErr
 	}
+
 	in.authenticationInfo = authentication.NewAuthenticated(userID, userAssignedChannel, realname)
 	log.Printf("Logged in:%s", in.authenticationInfo)
 	in.sendLoginResult(true, userAssignedChannel)

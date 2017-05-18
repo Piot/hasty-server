@@ -26,10 +26,10 @@ type Subscribers struct {
 }
 
 // NewSubscribers : todo
-func NewSubscribers() Subscribers {
+func NewSubscribers() *Subscribers {
 	pathToSubscribers := Subscribers{}
 	pathToSubscribers.channelToSubscribers = make(map[uint32]Subscriber)
-	return pathToSubscribers
+	return &pathToSubscribers
 }
 
 // Check : todo

@@ -17,9 +17,9 @@ type StreamStorage struct {
 }
 
 // NewStreamStorage : Creates a stream storage
-func NewStreamStorage(storage FileStorage) (StreamStorage, error) {
+func NewStreamStorage(storage FileStorage) (*StreamStorage, error) {
 	// rand.Seed(time.Now().UnixNano())
-	return StreamStorage{storage: storage}, nil
+	return &StreamStorage{storage: storage}, nil
 }
 
 func createChannelID(in *StreamStorage) (channel.ID, error) {
