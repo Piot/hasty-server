@@ -117,26 +117,50 @@ func (in *ConnectionHandler) HandlePublishStream(cmd commands.PublishStream) err
 
 // StreamChanged : todo
 func (in *ConnectionHandler) StreamChanged(channelID channel.ID) {
-	info := in.streamInfos[channelID.Raw()]
-	file, fileErr := in.storage.ReadStream(channelID)
-	if fileErr != nil {
-		return
+	info := in.fetchOrCreateStreamInfo(channelID)
+	in.sendStreamDataFromOffset(channelID, info.lastOffsetSent)
+}
+
+func (in *ConnectionHandler) sendStreamDataInChunks(channelID channel.ID, data []byte, octetsRead int, info *StreamInfo) {
+	startPos := 0
+	const chunkSize int = 4096
+	for pos := startPos; pos < octetsRead; pos += chunkSize {
+		remaining := octetsRead - pos
+		chunkThisTime := chunkSize
+		if remaining < chunkSize {
+			chunkThisTime = remaining
+		}
+		in.sendStreamData(channelID, uint32(info.lastOffsetSent), data[pos:pos+chunkThisTime])
+		info.lastOffsetSent += uint64(chunkThisTime)
 	}
-	file.Seek(info.lastOffsetSent)
-	data := make([]byte, 32*1024)
-	octetsRead, readErr := file.Read(data)
-	if readErr != nil {
-		return
-	}
-	file.Close()
-	in.sendStreamData(channelID, uint32(info.lastOffsetSent), data[:octetsRead])
-	info.lastOffsetSent += uint64(octetsRead)
 }
 
 func (in *ConnectionHandler) sendStreamData(channelID channel.ID, lastOffsetSent uint32, data []byte) {
 	log.Printf("%s sendStreamData %s offset:%d", in.connectionID, channelID, lastOffsetSent)
 	payload := packetserializers.StreamDataToOctets(channelID, lastOffsetSent, data)
 	in.sendPacket(payload)
+}
+
+func (in *ConnectionHandler) sendStreamDataFromOffset(channelID channel.ID, lastOffset uint64) error {
+	info := in.fetchOrCreateStreamInfo(channelID)
+	info.lastOffsetSent = lastOffset
+
+	readFile, err := in.storage.ReadStream(channelID)
+	if err != nil {
+		return err
+	}
+	readFile.Seek(lastOffset)
+
+	const maxSizeBuffer = 64 * 1024 * 1024
+	buf := make([]byte, maxSizeBuffer)
+	octetsRead, readErr := readFile.Read(buf)
+	if readErr == nil {
+		data := buf[:octetsRead]
+		in.sendStreamDataInChunks(channelID, data, octetsRead, info)
+	} else {
+		log.Printf("Couldn't read. What is that all about? %v", readErr)
+	}
+	return nil
 }
 
 func (in *ConnectionHandler) fetchOrCreateStreamInfo(channelID channel.ID) *StreamInfo {
@@ -153,27 +177,13 @@ func (in *ConnectionHandler) HandleSubscribeStream(cmd commands.SubscribeStream)
 	log.Printf("%s %s", in.connectionID, cmd)
 
 	for _, v := range cmd.Infos() {
-		readFile, err := in.storage.ReadStream(v.Channel())
-		lastOffset := 0
+		_, err := in.storage.ReadStream(v.Channel())
 		if err == nil {
-			offset := v.Offset()
-			const maxSizeBuffer = 1 * 1024 * 1024
-			buf := make([]byte, maxSizeBuffer)
-			readFile.Seek(uint64(offset))
-			octetsRead, readErr := readFile.Read(buf)
-			if readErr == nil {
-				data := buf[:octetsRead]
-				lastOffset = int(offset) + octetsRead
-				octetsToSend := packetserializers.StreamDataToOctets(v.Channel(), offset, data)
-				in.sendPacket(octetsToSend)
-			} else {
-				log.Printf("Couldn't read. What is that all about? %v", readErr)
-			}
+			in.sendStreamDataFromOffset(v.Channel(), uint64(v.Offset()))
 		} else {
 			log.Printf("Stream %v does not exist yet. You are still subscribed to it", v)
 		}
-		infos := in.fetchOrCreateStreamInfo(v.Channel())
-		infos.lastOffsetSent = uint64(lastOffset)
+
 		in.subscribers.AddStreamSubscriber(v.Channel(), in)
 	}
 }
