@@ -24,7 +24,10 @@ func splitDirectory(dir string) string {
 		result += snip
 	}
 	if dirLength%2 == 1 {
-		result += "/" + dir[dirLength-1:dirLength]
+		if len(result) > 0 {
+			result += "/"
+		}
+		result += dir[dirLength-1 : dirLength]
 	}
 	return result
 }
@@ -34,7 +37,15 @@ func splitIntoFileSystemFriendlyPaths(op opath.OPath) (opath.OPath, error) {
 	parts := strings.Split(str, "/")
 
 	var newParts []string
-	for _, directory := range parts {
+	for index, directory := range parts {
+		if index == 0 {
+			if len(directory) != 0 {
+				return opath.OPath{}, fmt.Errorf("Must start with /")
+			}
+		} else if len(directory) == 0 {
+			return opath.OPath{}, fmt.Errorf("Not allowed with zero length paths")
+		}
+
 		if len(directory) > 0 && directory[0] == '@' {
 			directory = splitDirectory(directory[1:])
 		}
