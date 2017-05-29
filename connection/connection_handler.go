@@ -71,7 +71,7 @@ func (in *ConnectionHandler) sendPong(echoedTime timestamp.Time) {
 
 func (in *ConnectionHandler) sendLoginResult(worked bool, channelID channel.ID) {
 	log.Printf("%s sendLoginResult %t", in.connectionID, worked)
-	octetsToSend := packetserializers.LoginResultToOctets(channelID)
+	octetsToSend := packetserializers.LoginResultToOctets(worked, channelID)
 	in.sendPacket(octetsToSend)
 }
 
@@ -264,6 +264,7 @@ func (in *ConnectionHandler) HandleLogin(cmd commands.Login) error {
 	userID, realname, authenticationErr := authenticator.Authenticate(restAuth.URL, restAuth.Path, restAuth.Headers[0].Name, restAuth.Headers[0].Value, cmd.Password())
 	if authenticationErr != nil {
 		log.Printf("Error: %v", authenticationErr)
+		in.sendLoginResult(false, channel.ID{})
 		return authenticationErr
 	}
 
