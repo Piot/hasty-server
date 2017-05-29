@@ -1,6 +1,7 @@
 package authenticator
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/dghubble/sling"
@@ -20,6 +21,12 @@ type AuthenticationResponse struct {
 	Username           string `json:"username"`
 }
 
+// ErrorResponse : todo
+type AuthenticationErrorResponse struct {
+	ErrorCode    int    `json:"errorCode"`
+	ErrorMessage string `json:"errorMessage"`
+}
+
 // Authenticate : todo
 func Authenticate(url string, path string, headerName string, headerValue string, authenticationToken string) (user.ID, string, error) {
 	notificationServerBase := sling.New().Base(url).Set(headerName, headerValue)
@@ -32,10 +39,17 @@ func Authenticate(url string, path string, headerName string, headerValue string
 	}
 
 	successfulResponse := AuthenticationResponse{}
-	_, responseErr := notificationServerBase.Do(req, &successfulResponse, &successfulResponse)
+	unsuccessfulResponse := AuthenticationErrorResponse{}
+	response, responseErr := notificationServerBase.Do(req, &successfulResponse, &unsuccessfulResponse)
 	if responseErr != nil {
 		log.Printf("responseError:%v", responseErr)
 		return user.ID{}, "", responseErr
+	}
+
+	if response.StatusCode < 200 || response.StatusCode > 299 {
+		authenticationError := fmt.Errorf("Could not authenticate: HTTP error %d. %d - '%s'", response.StatusCode, unsuccessfulResponse.ErrorCode, unsuccessfulResponse.ErrorMessage)
+		log.Printf("authenticationError:%s", authenticationError)
+		return user.ID{}, "", authenticationError
 	}
 
 	userID, _ := user.NewID(successfulResponse.UserID)
