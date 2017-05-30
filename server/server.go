@@ -1,8 +1,9 @@
 package hastyserver
 
 import (
-	log "github.com/sirupsen/logrus"
 	"net"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/handler"
 	"github.com/piot/hasty-protocol/packet"
@@ -41,7 +42,7 @@ func (in *HastyServer) Listen(host string, cert string, certPrivateKey string, h
 }
 
 func (in *HastyServer) CreateConnection(conn *net.Conn, connectionIdentity packet.ConnectionID) (handler.PacketHandler, error) {
-	log.Print("HastyServer: CreateConnection")
+	log.Debug("HastyServer: CreateConnection")
 	connectionHandler := connection.NewConnectionHandler(conn, in.realmRoot, in.hastyConfig, connectionIdentity)
 	return connectionHandler, nil
 }
