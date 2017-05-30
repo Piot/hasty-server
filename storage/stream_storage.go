@@ -1,7 +1,6 @@
 package filestorage
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"strings"
@@ -132,24 +131,6 @@ func (in StreamStorage) OpenStream(channel channel.ID) (AppendFile, error) {
 	path := objectPath(channel)
 	streamFile, streamErr := in.storage.AppendFile(path)
 	return streamFile, streamErr
-}
-
-// OpenOrCreateStream : opens or creates a new stream
-func (in StreamStorage) OpenOrCreateStream(channel channel.ID) (AppendFile, error) {
-	_, infoErr := in.getInfo(channel)
-	if infoErr != nil {
-		createdStream, createStreamErr := tryToCreateStream(&in, channel)
-		if createStreamErr != nil {
-			return AppendFile{}, createStreamErr
-		}
-		fakeOPath, _ := opath.NewFromString(fmt.Sprintf("/fake/objects/@%0d", channel.Raw()))
-		metaErr := in.writeMetaInformation(fakeOPath, channel)
-		if metaErr != nil {
-			return AppendFile{}, metaErr
-		}
-		return createdStream, nil
-	}
-	return in.OpenStream(channel)
 }
 
 // ReadStream : opens a new stream

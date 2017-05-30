@@ -75,6 +75,12 @@ func (in *ConnectionHandler) sendLoginResult(worked bool, channelID channel.ID) 
 	in.sendPacket(octetsToSend)
 }
 
+func (in *ConnectionHandler) sendCreateStreamResult(request uint64, channelID channel.ID) {
+	log.Printf("%s sendCreateStreamResult %08X %s", in.connectionID, request, channelID)
+	octetsToSend := packetserializers.CreateStreamResultToOctets(request, channelID)
+	in.sendPacket(octetsToSend)
+}
+
 // HandlePing : todo
 func (in *ConnectionHandler) HandlePing(cmd commands.Ping) {
 	log.Printf("%s %s", in.connectionID, cmd)
@@ -91,14 +97,21 @@ func (in *ConnectionHandler) HandlePong(cmd commands.Pong) {
 // HandleCreateStream : todo
 func (in *ConnectionHandler) HandleCreateStream(cmd commands.CreateStream) (channel.ID, error) {
 	log.Println("Handle create stream:", cmd)
-	channel, createErr := in.masterHandler.HandleCreateStream(nil, cmd)
+	createdChannelID, createErr := in.masterHandler.HandleCreateStream(nil, cmd)
 	if createErr != nil {
-		return channel, createErr
+		in.sendCreateStreamResult(cmd.RequestNumber(), channel.ID{})
+		return createdChannelID, createErr
 	}
 
+	in.sendCreateStreamResult(cmd.RequestNumber(), createdChannelID)
 	//	in.subscriber.HandleCreateStream(channel)
 
-	return channel, nil
+	return createdChannelID, nil
+}
+
+func (in *ConnectionHandler) HandleCreateStreamResult(cmd commands.CreateStreamResult) error {
+	log.Println("Handle create stream result:", cmd)
+	return nil
 }
 
 // HandlePublishStreamUser : todo
