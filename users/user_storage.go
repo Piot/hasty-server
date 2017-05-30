@@ -3,7 +3,8 @@ package users
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/opath"
@@ -42,14 +43,14 @@ func (in *Storage) FindUserInfo(userID user.ID) (channel.ID, error) {
 	buffer := data[:8]
 	userAssignedChannelIDValue := binary.BigEndian.Uint64(buffer)
 	userAssignedChannelID, _ := channel.NewFromID(uint32(userAssignedChannelIDValue))
-	log.Printf("Found user info %v channel:%v", userID, userAssignedChannelID)
+	log.Debugf("Found user info %v channel:%v", userID, userAssignedChannelID)
 	return userAssignedChannelID, nil
 }
 
 // CreateUserInfo : todo
 func (in *Storage) CreateUserInfo(userID user.ID) (channel.ID, error) {
 	userInfoPathString := fmt.Sprintf("/internal/userchannel/@%d", userID.Raw())
-	log.Printf("CreateUserInfo %v %v", userID, userInfoPathString)
+	log.Debugf("CreateUserInfo %v %v", userID, userInfoPathString)
 
 	userChannelOPath, userChannelOPathErr := opath.NewFromString(userInfoPathString)
 	if userChannelOPathErr != nil {
@@ -66,7 +67,7 @@ func (in *Storage) CreateUserInfo(userID user.ID) (channel.ID, error) {
 
 	binary.BigEndian.PutUint64(data, uint64(userAssignedChannel.Raw()))
 	in.fileStorage.WriteAtomic(userOPath, ".info", data)
-	log.Printf("Writing user info: %v channel: %v", userID, userAssignedChannel)
+	log.Debugf("Writing user info: %v channel: %v", userID, userAssignedChannel)
 	return userAssignedChannel, nil
 }
 

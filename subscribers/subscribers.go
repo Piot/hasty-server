@@ -4,7 +4,8 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/channel"
 )
@@ -32,25 +33,17 @@ func NewSubscribers() *Subscribers {
 	return &pathToSubscribers
 }
 
-// Check : todo
-func (in *Subscribers) Check() {
-	if in.channelToSubscribers == nil {
-		log.Println("CHECK SUBSCRIBER NULL")
-	}
-}
-
 // StreamChanged : Called when stream has changed
 func (in *Subscribers) StreamChanged(id channel.ID) {
-	log.Printf("Detected a stream change %s", id)
+	log.Debugf("Detected a stream change %s", id)
 	raw := id.Raw()
 	existingSubscribers := in.channelToSubscribers[raw]
 	if existingSubscribers.subscribers == nil {
-		log.Printf("No one was listening...")
 		return
 	}
 	l := existingSubscribers.subscribers
 	for e := l.Front(); e != nil; e = e.Next() {
-		log.Printf("Calling stream changed on subscriber")
+		log.Debugf("Calling stream changed on subscriber")
 		e.Value.(SubscribeNotify).StreamChanged(id)
 	}
 }
@@ -64,11 +57,11 @@ func (in *Subscribers) AddStreamSubscriber(c channel.ID, subscribeNotify Subscri
 	existingSubscribers := in.channelToSubscribers[raw]
 	if existingSubscribers.subscribers == nil {
 		existingSubscribers.subscribers = list.New()
-		log.Printf("Ex:%p", in.channelToSubscribers)
+		log.Debugf("Ex:%p", in.channelToSubscribers)
 		in.channelToSubscribers[raw] = existingSubscribers
 	}
 	existingSubscribers.subscribers.PushFront(subscribeNotify)
-	log.Printf("Subscriber is added to %s", c)
+	log.Debugf("Subscriber is added to %s", c)
 	return nil
 }
 

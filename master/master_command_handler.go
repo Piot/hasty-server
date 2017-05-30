@@ -1,8 +1,9 @@
 package master
 
 import (
-	"log"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/commands"
@@ -26,40 +27,29 @@ func NewMasterCommandHandler(storage *filestorage.StreamStorage, subs *subscribe
 // HandlePublishStream : todo
 func (in *MasterCommandHandler) HandlePublishStream(client authorization.Client, cmd commands.PublishStream) error {
 	channel := cmd.Channel()
-	/*
-		authorization, authErr := client.GetChannelAuthorization(channel)
-		log.Println("After Channel")
-		if authErr != nil {
-			return authErr
-		}
-
-		if !authorization.AllowedToWrite() {
-			return fmt.Errorf("Not allowed to write to %s", channel)
-		}
-	*/
 	in.publishStreamLock.Lock()
 	defer in.publishStreamLock.Unlock()
-	log.Printf("Master publish:%s", cmd)
+	log.Debugf("Master publish:%s", cmd)
 	streamFile, openErr := in.storage.OpenStream(channel)
 	if openErr != nil {
-		log.Printf("Couldn't open stream %s", channel)
+		log.Warnf("Couldn't open stream %s", channel)
 		return openErr
 	}
 
 	appendErr := streamFile.Append(cmd.Chunk())
 	if appendErr != nil {
-		log.Printf("Couldn't append stream %s", channel)
+		log.Warnf("Couldn't append stream %s", channel)
 		return appendErr
 	}
 	streamFile.Close()
 	in.subs.StreamChanged(channel)
-	log.Printf("Master publish done")
+	log.Debugf("Master publish done")
 	return nil
 }
 
 // HandleCreateStream : todo
 func (in *MasterCommandHandler) HandleCreateStream(client authorization.Client, cmd commands.CreateStream) (channel.ID, error) {
-	log.Println("Master createStream:", cmd)
+	log.Debugf("Master createStream:", cmd)
 	path := cmd.Path()
 	/*
 		authorization, authErr := client.GetCreateChannelAuthorization(path)

@@ -1,7 +1,7 @@
 package hastyserver
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net"
 
 	"github.com/piot/hasty-protocol/handler"

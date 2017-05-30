@@ -1,7 +1,7 @@
 package subscriber
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-server/subscribers"
@@ -31,7 +31,7 @@ const (
 
 // NewSubscriber : Creates a subscriber
 func NewSubscriber(subscriptionManager subscribers.Subscribers) Subscriber {
-	log.Println("NewSubscriber")
+	log.Debug("NewSubscriber")
 	subscriber := Subscriber{subscriptionManager: subscriptionManager}
 	return subscriber
 }
@@ -50,15 +50,15 @@ func priorityValueFromPriority(priority Priority) int {
 
 // Subscribe : start subscribing
 func (in *Subscriber) Subscribe(path channel.ID, priority Priority) {
-	log.Printf("Subscribing %s %d", path, priority)
+	log.Debugf("Subscribing %s %d", path, priority)
 	if in == nil {
-		log.Println("IN is nil")
+		log.Warnf("IN is nil")
 	}
-	log.Printf("XXX:%p", in)
+	log.Debugf("XXX:%p", in)
 }
 
 // UnsubscribeStream : UnsubscribeStream
 func (in *Subscriber) UnsubscribeStream(channel channel.ID) {
-	log.Printf("Unsubscribing %s", channel)
+	log.Debugf("Unsubscribing %s", channel)
 	//	in.subscriptionManager.RemoveSubscriber(channel, in)
 }

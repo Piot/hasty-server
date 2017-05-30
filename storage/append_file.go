@@ -2,8 +2,9 @@ package filestorage
 
 import (
 	"fmt"
-	"log"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/opath"
 )
@@ -47,12 +48,12 @@ func NewAppendFile(file *os.File, name opath.OPath) (AppendFile, error) {
 	if seekErr != nil {
 		return AppendFile{}, seekErr
 	}
-	log.Printf("Seeking to end %d of %s", offset, name)
+	log.Debugf("Seeking to end %d of %s", offset, name)
 	return AppendFile{file: file, name: name}, nil
 }
 
 // Close : Close the file
 func (in AppendFile) Close() {
-	log.Printf("Close file:%s", in.name)
+	log.Debugf("Close file:%s", in.name)
 	in.file.Close()
 }

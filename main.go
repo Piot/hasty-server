@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/fatih/color"
 	"github.com/piot/hasty-server/config"
@@ -24,9 +24,9 @@ func main() {
 	if err != nil {
 		return
 	}
-	log.Printf("config url:%v", config.Authentication.URL)
+	log.Debugf("config url:%v", config.Authentication.URL)
 	listenErr := s.Listen(*host, *cert, *key, config)
 	if listenErr != nil {
-		log.Printf("Error:%s", listenErr)
+		log.Warnf("Error:%s", listenErr)
 	}
 }

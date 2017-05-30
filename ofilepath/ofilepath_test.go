@@ -1,8 +1,9 @@
 package ofilepath
 
 import (
-	"log"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/opath"
 )
@@ -32,9 +33,9 @@ func checkPath(t *testing.T, path string, valid bool) {
 		t.Errorf("Failed '%s' should be a valid path", path)
 	}
 	if valid {
-		log.Printf("Checked '%s'", ofpExample)
+		log.Infof("Checked '%s'", ofpExample)
 	} else {
-		log.Printf("Not passed '%s'", path)
+		log.Warnf("Not passed '%s'", path)
 	}
 }
 

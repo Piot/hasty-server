@@ -2,10 +2,11 @@ package filestorage
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/opath"
 	"github.com/piot/hasty-server/ofilepath"
@@ -51,7 +52,7 @@ func openFile(completePath string, flags int) (*os.File, error) {
 
 // NewFile : Creates a new file
 func (in FileStorage) NewFile(opath opath.OPath, extension string) (AppendFile, error) {
-	log.Printf("NewFile '%v'", opath)
+	log.Debugf("NewFile '%v'", opath)
 	completePath, completeErr := in.opathToFullPath(opath)
 	if len(extension) > 0 {
 		completePath += extension
@@ -74,7 +75,7 @@ func (in FileStorage) NewFile(opath opath.OPath, extension string) (AppendFile, 
 
 // AppendFile : Opens an existing file
 func (in FileStorage) AppendFile(opath opath.OPath) (AppendFile, error) {
-	log.Printf("Open append %s", opath.ToString())
+	log.Debugf("Open append %s", opath.ToString())
 
 	completePath, completeErr := in.opathToFullPath(opath)
 	if completeErr != nil {
@@ -89,7 +90,7 @@ func (in FileStorage) AppendFile(opath opath.OPath) (AppendFile, error) {
 
 // ReadFile : Opens an existing file
 func (in FileStorage) ReadFile(opath opath.OPath, extension string) (ReadFile, error) {
-	// log.Printf("Read file %s (extension:%s)", opath.ToString(), extension)
+	// log.Debugf("Read file %s (extension:%s)", opath.ToString(), extension)
 	completePath, completeErr := in.opathToFullPath(opath)
 	if len(extension) > 0 {
 		completePath += extension
@@ -106,7 +107,7 @@ func (in FileStorage) ReadFile(opath opath.OPath, extension string) (ReadFile, e
 
 // WriteAtomic : Writes a file atomically
 func (in FileStorage) WriteAtomic(opath opath.OPath, extension string, data []byte) error {
-	// log.Printf("Write atomic %s (extension:%s)", opath.ToString(), extension)
+	// log.Debugf("Write atomic %s (extension:%s)", opath.ToString(), extension)
 	file, createErr := in.NewFile(opath, extension)
 	if createErr != nil {
 		return createErr
@@ -118,15 +119,15 @@ func (in FileStorage) WriteAtomic(opath opath.OPath, extension string, data []by
 
 // ReadAtomic : Reads a file atomically
 func (in FileStorage) ReadAtomic(opath opath.OPath, extension string, data []byte) (int, error) {
-	// log.Printf("ReadAtomic:%s extension:%s", opath, extension)
+	// log.Debugf("ReadAtomic:%s extension:%s", opath, extension)
 	file, createErr := in.ReadFile(opath, extension)
 	if createErr != nil {
-		log.Printf("Open error:%s", createErr)
+		log.Warnf("Open error:%s", createErr)
 		return 0, createErr
 	}
 	octetCount, readErr := file.Read(data)
 	if readErr != nil {
-		log.Printf("Read error:%s", readErr)
+		log.Warnf("Read error:%s", readErr)
 		return 0, readErr
 	}
 	file.Close()

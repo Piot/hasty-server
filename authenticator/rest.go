@@ -2,7 +2,8 @@ package authenticator
 
 import (
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/dghubble/sling"
 	"github.com/piot/hasty-protocol/user"
@@ -34,7 +35,7 @@ func Authenticate(url string, path string, headerName string, headerValue string
 	body := &AuthenticationMessage{AuthenticationToken: authenticationToken}
 	req, err := notificationServerBase.New().Post(path).BodyJSON(body).Request()
 	if err != nil {
-		log.Printf("Request error %v", err)
+		log.Warnf("Request error %v", err)
 		return user.ID{}, "", err
 	}
 
@@ -42,17 +43,17 @@ func Authenticate(url string, path string, headerName string, headerValue string
 	unsuccessfulResponse := AuthenticationErrorResponse{}
 	response, responseErr := notificationServerBase.Do(req, &successfulResponse, &unsuccessfulResponse)
 	if responseErr != nil {
-		log.Printf("responseError:%v", responseErr)
+		log.Warnf("responseError:%v", responseErr)
 		return user.ID{}, "", responseErr
 	}
 
 	if response.StatusCode < 200 || response.StatusCode > 299 {
 		authenticationError := fmt.Errorf("Could not authenticate: HTTP error %d. %d - '%s'", response.StatusCode, unsuccessfulResponse.ErrorCode, unsuccessfulResponse.ErrorMessage)
-		log.Printf("authenticationError:%s", authenticationError)
+		log.Warnf("authenticationError:%s", authenticationError)
 		return user.ID{}, "", authenticationError
 	}
 
 	userID, _ := user.NewID(successfulResponse.UserID)
-	log.Printf("Received userId:%v and username:%v", userID, successfulResponse.Username)
+	log.Infof("Received userId:%v and username:%v", userID, successfulResponse.Username)
 	return userID, successfulResponse.Username, nil
 }

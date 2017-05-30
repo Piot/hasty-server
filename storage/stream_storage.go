@@ -1,9 +1,10 @@
 package filestorage
 
 import (
-	"log"
 	"math/rand"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/piot/hasty-protocol/channel"
 	"github.com/piot/hasty-protocol/opath"
@@ -72,7 +73,7 @@ func (in *StreamStorage) NewStream(path opath.OPath) (AppendFile, channel.ID, er
 	in.hacks = 0
 	streamFile, channelID, gaveUpErr := createStream(in)
 	if gaveUpErr != nil {
-		log.Printf("We gave up:%s", gaveUpErr)
+		log.Warnf("We gave up:%s", gaveUpErr)
 		return AppendFile{}, channelID, gaveUpErr
 	}
 
@@ -88,13 +89,13 @@ func (in *StreamStorage) writeMetaInformation(path opath.OPath, channelID channe
 	refOPath := refPath(path)
 	prepareRefErr := in.storage.WriteAtomic(refOPath, "", []byte(""))
 	if prepareRefErr != nil {
-		log.Printf("Prepare Ref err:%s", prepareRefErr)
+		log.Warnf("Prepare Ref err:%s", prepareRefErr)
 		return prepareRefErr
 	}
 
 	refFile, idErr := in.storage.AppendFile(refOPath)
 	if idErr != nil {
-		log.Printf("Atomic ID err:%s", idErr)
+		log.Warnf("Atomic ID err:%s", idErr)
 		return idErr
 	}
 	refFile.Append([]byte(channelID.ToHex() + "\n"))
@@ -103,7 +104,7 @@ func (in *StreamStorage) writeMetaInformation(path opath.OPath, channelID channe
 	infoPath := objectPath(channelID)
 	infoErr := in.storage.WriteAtomic(infoPath, ".info", []byte(path.ToString()+"\n"))
 	if infoErr != nil {
-		log.Printf("Atomic info err:%s", infoErr)
+		log.Warnf("Atomic info err:%s", infoErr)
 		return infoErr
 	}
 
@@ -127,7 +128,7 @@ func (in StreamStorage) OpenStream(channel channel.ID) (AppendFile, error) {
 	if infoErr != nil {
 		return AppendFile{}, infoErr
 	}
-	log.Printf("Open Stream %s path: '%s'", channel, originalPath)
+	log.Debugf("Open Stream %s path: '%s'", channel, originalPath)
 	path := objectPath(channel)
 	streamFile, streamErr := in.storage.AppendFile(path)
 	return streamFile, streamErr
@@ -139,7 +140,7 @@ func (in StreamStorage) ReadStream(channel channel.ID) (ReadFile, error) {
 	if infoErr != nil {
 		return ReadFile{}, infoErr
 	}
-	log.Printf("Read Stream %s path: '%s'", channel, originalPath)
+	log.Debugf("Read Stream %s path: '%s'", channel, originalPath)
 	path := objectPath(channel)
 	streamFile, streamErr := in.storage.ReadFile(path, "")
 	return streamFile, streamErr
