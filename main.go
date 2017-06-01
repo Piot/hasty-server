@@ -19,6 +19,9 @@ var (
 func main() {
 	color.Cyan("Hastyd v0.1.1")
 	kingpin.Parse()
+	if *verbose {
+		log.SetLevel(log.DebugLevel)
+	}
 	s := hastyserver.NewServer()
 	config, err := config.LoadConfig()
 	if err != nil {
